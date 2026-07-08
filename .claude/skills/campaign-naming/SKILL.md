@@ -5,20 +5,31 @@ description: Proposes a standardized campaign name from classified intake data f
 
 # Campaign Naming
 
-There is **no fixed naming convention yet** (per @context/work.md and @.claude/rules/mops-operations.md). This skill's job right now is to propose a consistent, sensible name and get it confirmed — not to silently enforce a convention that doesn't exist.
+## Naming convention (confirmed 2026-07-08, see `decisions/log.md`)
+
+```
+type_subtype_region_description_year_quarter
+```
+
+Example: `evt_ws_all_dam workshop boston_2026_q3`
+(type=`evt` event, subtype=`ws` workshop, region=`all`, description=`dam workshop boston`, year=`2026`, quarter=`q3`)
+
+**Known codes** (only what's been confirmed so far — extend this table as new ones are confirmed, don't invent codes):
+
+| Segment | Confirmed values |
+|---|---|
+| type | `evt` = event |
+| subtype | `ws` = workshop |
+| region | `all` = all regions |
 
 ## Process
 
-1. Take the classified intake data (request type, product/segment, region, target date).
-2. Propose a name using a simple, readable pattern, e.g.:
-   `[RequestType]_[Product/Segment]_[Region]_[YYYYMM]`
-   (This exact pattern is a starting guess — treat it as a draft, not policy.)
-3. **Always show the proposed name and ask for confirmation** before writing it into any Asana task or Salesforce campaign record.
-4. Once a name is approved:
-   - Use it consistently for both the Asana task/sub-tasks and the Salesforce campaign record so they match.
-   - If the user corrects the pattern (not just the specific name), log the corrected pattern to `decisions/log.md` as the emerging convention, e.g.:
-     `[YYYY-MM-DD] DECISION: Campaign naming convention is X | REASONING: ... | CONTEXT: ...`
-5. Once a convention has been logged in `decisions/log.md`, use it going forward instead of re-proposing from scratch each time — check the log first.
+1. Take the classified intake data (request type, product/segment, region, description, target date).
+2. Map each field to its code using the table above.
+3. **If a needed type/subtype/region code isn't in the table yet, ask what code to use** rather than inventing one — then add the confirmed code to the table above so it's reusable.
+4. Build the name in the exact segment order: `type_subtype_region_description_year_quarter`.
+5. Show the generated name before writing it into Asana or Salesforce — a quick sanity check, not a full re-negotiation of the format.
+6. Use the same name consistently for the Asana task/sub-tasks and the Salesforce campaign record so they match.
 
 ## Why this matters
-Naming drift is a named MOPS pain point — inconsistent names break Salesforce reporting and attribution. This skill exists to converge on one convention over a few real uses, not to guess forever.
+Naming drift is a named MOPS pain point — inconsistent names break Salesforce reporting and attribution. The format itself is now fixed; the only open work is filling in the code table as new types/subtypes/regions come up.

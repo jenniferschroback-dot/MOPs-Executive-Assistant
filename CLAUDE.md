@@ -48,6 +48,8 @@ Memory + context files + decision log = your assistant gets smarter over time wi
 ## Projects
 Active workstreams live in `projects/`, one folder per project with a `README.md` (status, description, key dates).
 
+For intake pipeline automation specifics not found in this project or the (pending) Obsidian vault, check the GitHub repo: https://github.com/forkanelebdi-ACQ/mops-ai-automation-routines
+
 ## Templates
 Reusable templates (e.g. session summaries) live in `templates/`.
 

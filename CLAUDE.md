@@ -18,13 +18,15 @@ Connected via MCP: **Asana**, **Salesforce**, **Jira**, **Slack** — use these 
 Used daily but not yet MCP-connected: **Pardot**.
 
 ## Skills
-Skills live in `.claude/skills/`. Each skill is a folder: `.claude/skills/skill-name/SKILL.md`. This directory starts empty — skills get built organically as recurring workflows emerge, not speculatively.
+Skills live in `.claude/skills/`. Each skill is a folder: `.claude/skills/skill-name/SKILL.md`. New skills get built organically as recurring workflows emerge.
 
-**Skills to build (backlog):**
-- Intake form classification → structured ticket data
-- Campaign naming generator (once a convention is defined and logged)
-- Salesforce campaign spec + status-scaffolding creation
-- Intake-to-launch tracking / status reporting
+**Built:**
+- `intake-classification` — raw intake form → structured ticket data + Asana sub-tasks
+- `campaign-naming` — proposes a campaign name (no fixed convention yet — always confirms before use)
+- `sf-campaign-spec` — Salesforce campaign record + status scaffolding (schema is placeholder, needs verification against the org)
+- `intake-tracking` — status reporting across Asana/Jira/Salesforce, intake-to-launch timing
+
+**Backlog:** none open right now — add here as new recurring requests surface.
 
 ## Decision Log
 Log meaningful decisions in `decisions/log.md`. It's append-only — never edit or delete past entries, just add to the bottom.

@@ -17,6 +17,8 @@ Connected via MCP: **Asana**, **Salesforce**, **Jira**, **Slack** — use these 
 
 Used daily but not yet MCP-connected: **Pardot**.
 
+Full capability breakdown (what each connection can actually do, plus what's authorized-but-unconnected) lives in `tools/available-tools.md` — check it before assuming a tool can do something, especially for Salesforce writes.
+
 ## Skills
 Skills live in `.claude/skills/`. Each skill is a folder: `.claude/skills/skill-name/SKILL.md`. New skills get built organically as recurring workflows emerge.
 

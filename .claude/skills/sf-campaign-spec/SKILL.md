@@ -9,6 +9,8 @@ Creates the Salesforce side of a request: the campaign record and its member sta
 
 **The exact schema below is a placeholder.** Acquia's real Salesforce campaign record types, required fields, and status picklist values have not been confirmed yet. Do not treat the table below as production truth — verify against the actual org (or ask Forkan/MOPS) before relying on it, and update this file once confirmed.
 
+**Known limitation:** the connected Salesforce MCP is currently read/query only (see `tools/available-tools.md`) — there is no create/update tool available yet. Propose the full spec as normal, but flag that the actual create step needs to happen manually (or via a write-capable connection) until that changes.
+
 ## Process
 
 1. Take the classified + named request (from `intake-classification` and `campaign-naming`).

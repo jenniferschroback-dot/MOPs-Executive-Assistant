@@ -5,10 +5,10 @@ MOPS (Marketing Operations) team at Acquia — 5 people.
 | Name | Role | Notes |
 |---|---|---|
 | Forkan | Intern — Marketing AI, Operations & AI Automation | Me — builds automation for the team |
-| Harish | MOPS team member | Role detail TBD |
-| Aayushi | MOPS team member | Role detail TBD |
-| Felipe | MOPS team member | Role detail TBD |
-| Jennifer | MOPS team member | Role detail TBD |
+| Harish | MOPS team member | Handles webinar/event campaign naming + Salesforce campaign creation today; builds landing pages for webinar requests (event landing pages go to the web team instead). Deep working knowledge of the intake→campaign process — primary source for naming/classification edge cases (see 2026-07-13 meeting, `transcripts/`). |
+| Aayushi | MOPS team member (lead) | Has run the Thursday stakeholder call for the last ~1-2 months (previously Harish) — walks stakeholders through unassigned/urgent tickets and the upcoming email send calendar. |
+| Felipe | MOPS team member | Works audience/target list pulls. |
+| Jennifer | MOPS team member | Wants campaign names in plain English, understandable across teams — driving force behind the naming convention work (see `campaign-naming` skill). |
 
 ## Communication
 The team communicates in Slack.

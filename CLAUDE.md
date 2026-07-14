@@ -24,11 +24,16 @@ Skills live in `.claude/skills/`. Each skill is a folder: `.claude/skills/skill-
 
 **Built:**
 - `intake-classification` — raw intake form → structured ticket data + Asana sub-tasks
-- `campaign-naming` — proposes a campaign name (no fixed convention yet — always confirms before use)
+- `campaign-naming` — proposes a campaign name against the fixed `Region_Channel_Product_Description_YYYY-Qn` convention (code table still growing — ask before inventing a new code)
 - `sf-campaign-spec` — Salesforce campaign record + status scaffolding (schema is placeholder, needs verification against the org)
+- `email-send-calendar` — turns a multi-send email request into dated Asana milestone sub-tasks (the shared email send calendar), catching audience clashes
 - `intake-tracking` — status reporting across Asana/Jira/Salesforce, intake-to-launch timing
+- `MOps-weekly-report` — generates the 19-slide MOps Weekly Review from live Asana/Salesforce/Jira data ahead of the Project Review Meeting, converts it to Google Slides, and posts the link + headline summary to #mops-team
 
 **Backlog:** none open right now — add here as new recurring requests surface.
+
+**Meta:**
+- `skill-builder` — not a MOPS workflow skill; guides building, auditing, and optimizing other skills (discovery interview, frontmatter, structure, testing). Use this before hand-authoring a new skill file.
 
 ## Decision Log
 Log meaningful decisions in `decisions/log.md`. It's append-only — never edit or delete past entries, just add to the bottom.

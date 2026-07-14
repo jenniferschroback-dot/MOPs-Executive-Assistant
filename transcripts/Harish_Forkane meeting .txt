@@ -1,0 +1,530 @@
+﻿Harish/Forkane meeting 
+Monday Jul 13 2026
+
+
+Meeting transcript:
+
+0:00: Send it to me so I Douglas, thank you. 
+ 0:03: Yes, I started the recording and please feel free to connect any time means whatever we discussed and you found that, yeah, there was some issue. 
+ 0:12: So again, I'm sharing my screen, so. 
+ 0:16: So do you want me to share this type and subtype again once for sure, sure, sure, yeah, OK, so the first thing was that we are just proceeding with the event means campaign type only only there will be a difference for the email campaign, so all the email will be proceeding with the email. 
+ 0:39: Other than the nurture, if we have the nurture type of email request for the nurture request if we got, then we will here if you get the type as an email in the request form and subtype as a nurture. 
+ 0:54: So the naming convention should be nurture, means N U RT or anything which you find suitable or which you find. 
+ 1:03: So there is only difference in the email we will. 
+ 1:07: Just differentiate two types of email. 
+ 1:09: One email, it will cover all types of email, means promotional email, post webinar, or post-event email, any other type of email we are using. 
+ 1:19: So we will cover all types of email in the email, and for the nurture, we will just make it as a nurture, something like a nurture from the starting, and the rest all will be the same, the naming convention. 
+ 1:33: So the second thing was that if So, usually, you can, I just saw your comment here. 
+ 1:43: Maybe in some request I got it might be a different I, no, no, I deleted it. 
+ 1:50: I deleted it by the way. 
+ 1:51: OK, so what I deleted the comment because it confused some people, especially Glenn. 
+ 1:57: I know he was confused a little bit, so I, I deleted it, so you know there was no confusions and I messaged. 
+ 2:04: I slacked him, you know, I sent him a Slack message explaining this to him the situation and he was like, it's all good. 
+ 2:12: Yeah, OK, no, actually, what happened, different, different stakeholder follows different method to share the email request for us. 
+ 2:20: So for example, let's start with Glenn only. 
+ 2:22: So what happened? 
+ 2:24: Glenn always share the email. 
+ 2:26: Into the comment section, into the comment of the ticket. 
+ 2:30: So you can see that all the emails he wanted for this particular event, he wanted to have two email promotions. 
+ 2:38: So on 9th and on 16th, and the email detail he already shared into the comment. 
+ 2:44: So in one comment he has shared about the email one. 
+ 2:48: So, which was already out, and this is the 2nd email which will be going out on this Thursday, on the 16th, so on this Thursday. 
+ 2:57: So this is the first scenario, how the stakeholders share the email request. 
+ 3:01: Second scenario I can share for this latm request. 
+ 3:07: OK, so, Here in the Latin, I, I think so. 
+ 3:13: He was also your comment, but I don't know where, yeah, OK, so I, I deleted most of my comments, to be honest, so it does, it doesn't confuse people. 
+ 3:22: I, some, some people like I think talked to, Jennifer and told her that there are some new comments and stuff, and then I was like, OK, I'll just take them off, you know, to not confuse anybody. 
+ 3:33: So yeah. 
+ 3:34: OK, so this second type, how they are sharing the email request, there is one document. 
+ 3:41: So this is the document which they follow and they update all the information here. 
+ 3:47: You can see that email send date will be on 14th of July tomorrow. 
+ 3:52: So this is a subject line pre-header, banner link which they have, which we need to upload over there, and email body. 
+ 4:01: So, all the CTA information will be there. 
+ 4:04: So, they wanted to promote 3 emails for this particular webinar in Brazil region. 
+ 4:10: So, this is another method. 
+ 4:13: So, That's the reason I thought means what means your plan was exactly right, and even I discussed with Jenny that we need to inform all the stakeholders that they need to fill the MOP s intake form. 
+ 4:29: Otherwise, if we are going to implement this process, so instead of before that, before implementing this process, we have to make sure that every stakeholder should upload the MOPs, fill the MOPs intake form. 
+ 4:42: Take form, yeah. 
+ 4:43: And so my concern was that if whatever you may be planning to do for this email, maybe in future what how you want the flow should be there means we can make the process like that to every stakeholder if you want that everyone should comment over here in, in the document that email request should be, we should get from this document. 
+ 5:08: Our email request should be, we should get from the Asana that how many emails, but in the Asana, if they wanted to have the email request, so it will be a little bit lengthy because if they wanted to promote 4 emails, so it will be a little bit lengthy for them to update all the sa means all the subject line and all or. 
+ 5:34: So, this was the scenario I thought we should discuss and we should plan according to how the AI should work over here. 
+ 5:43: OK, so, so, OK. 
+ 5:47: These are subtasks. 
+ 5:48: What I understood is that you said it's lengthy for them to fill out the intake form, you said, for email campaigns like that? 
+ 5:59: Yes, because if they, maybe because not lengthy, I can say that, because if they are filling this form every time, then they can fill that form too. 
+ 6:11: But we have to, I think so, we need to update our mops intake form also that every, if they want to promote 3 emails, they should have that. 
+ 6:23: That should be like that. 
+ 6:26: yes, it is a first invite. 
+ 6:27: So all the first subject line pre-header first, and the body for the first email should be update options they should get. 
+ 6:35: And after that, if they want a second email, they can just add another. 
+ 6:40: Subtask into the sana and after that, not subtask, maybe another drop down into the form so that email to request they again, they should get all the three information that what will be the subject line, what will be the preheader, what will be the email body for that like that, we have to modify our syntake too, I believe. 
+ 7:02: Then, OK, can I ask you a question? 
+ 7:05: Yes. 
+ 7:06: So what if I, for example, what if I go to a sun? 
+ 7:10: And create an intake form that would like kind of work hand in hand with the process that I'm building. 
+ 7:20: Would that be something that I would be able to do in a sauna, in a sauna? 
+ 7:25: we can test now. 
+ 7:27: I can just, you have time, right? 
+ 7:30: Maybe if our call will let you. 
+ 7:32: No, no, I have, I have time. 
+ 7:35: OK, I'll pull up. 
+ 7:38: Yeah, even I was trying, I will create you naming conventional for the campaign creation. 
+ 7:44: I will create a few test. 
+ 7:47: Today? 
+ 7:50: This Prianka, OK. 
+ 7:52: So Mhm. 
+ 8:03: What's the name? 
+ 8:24: So here it was just a one-off email. 
+ 8:27: So, here you can see, we don't have any direct information means Like that means. 
+ 8:41: We don't have any step over here. 
+ 8:43: It means, if, if anyone is selecting the email, then we should have the, how many numbers of emails they want to promote. 
+ 8:51: If they want to promote 3 emails, we should have all the option. 
+ 8:55: Maybe add first email, all the information, subject line, preheader, like that. 
+ 9:00: So here they see this form is there, email form, you can see. 
+ 9:08: Yeah, you look at this form. 
+ 9:10: Oh my God. 
+ 9:15: So, so, yeah, so. 
+ 9:18: So I, I just sent you, by the way, a, a message on. 
+ 9:27: Do you think it's possible if we can, let me say something. 
+ 9:34: Bless. 
+ 9:44: So, this one, I believe it will be for the campaign creation, right? 
+ 9:51: Yes. 
+ 9:52: OK, so. 
+ 9:54: It's for the campaign creation. 
+ 9:57: And for the, for the naming. 
+ 10:01: you, you're reading my Slack message? 
+ 10:03: Yes. 
+ 10:05: OK, yeah, yeah. 
+ 10:09: Yeah, so this would be, yeah, so for the campaign name, and then core qualification fields. 
+ 10:18: So these are the fields that I, I'm gonna need to come up with the, you know, with the best name for the campaign. 
+ 10:29: So yeah, so these are the types region go live date. 
+ 10:35: Goal and also, especially like, for example, the key message and goal are very important. 
+ 10:41: To for me because what Jennifer told me, she told me that she wants a A name that uses the plain English a little bit. 
+ 10:51: You see why that's why like the key message and the goal are very important. 
+ 10:56: So let's say for the it will be email, and then for the, for example here, yeah, yeah, it will be email and then, for example, he's gonna name the region. 
+ 11:08: And then it's gonna be like, for example, this is an email campaign, this is just an example, this is an email campaign for such and such, and then, and then it's gonna have the year and the the the quarter. 
+ 11:20: OK, not making sense, but basically what she wanted it to be is like she wanted the, the the campaign name to be understood across all teams. 
+ 11:31: Because she feels she told me that she feels like the, the naming is what's holding these campaigns, like that's what's taking so long because people don't understand what this campaign is about, you know, and there's a lot of confusion, and so that takes them, you know, that makes them lose a lot of time, like by the time the ticket is submitted and for the campaign to be created. 
+ 11:54: It's taken a lot of time because of the name and the confusion around the name, so. 
+ 12:01: OK. 
+ 12:02: And so just means, what I'm just sharing in the scenario what can happen if we add a key message over there. 
+ 12:14: So, do you, have you set up any limit for that particular key message? 
+ 12:19: Because what I believe, so what can happen, I can just. 
+ 12:25: Maybe sometime what happen, they just shared a huge name. 
+ 12:31: Maybe I can share it over here, see. 
+ 12:34: It means sometimes what happened, they just shared the leading university are doing differently, so it was a very big. 
+ 12:43: So here you can this investigate what happened. 
+ 12:47: They shared a very big about the event name. 
+ 12:51: The name was very big. 
+ 12:52: So even in the sales force also we have certain limit that we can't extend our naming for the campaign after this, maybe some limit is there. 
+ 13:04: So what I believe we should consider some. 
+ 13:09: Characters should limit for that naming, that event name should be maybe. 
+ 13:15: Maybe 40 characters or 45 or 50 characters, depending on how, because what can, if the stakeholder can elaborate all the information into that particular name. 
+ 13:29: So we can just add certain limit that, OK, the naming of the name of the event or campaign should be up to certain characters only. 
+ 13:40: OK, I'll see, yeah, yeah, yeah, this is just a suggestion if you find that, yeah, because of what I experienced, because this is something which I have created manually. 
+ 13:49: So there was a very big name for that particular, they shared with me all the information about this particular event. 
+ 13:57: So instead of that, I just selected the leading. 
+ 14:01: university, because if I was typing, leading university completely, so it was going out of the limit. 
+ 14:08: Yeah, yeah, I see, I see, yeah, OK, so that, that can be something that can be easily, you know, added to the automation, yeah, yes, so that is something we can add. 
+ 14:19: Maybe the stakeholder can also be a little bit specific while sharing the event name to us that what was the exactly the event name belongs to. 
+ 14:30: So this is something we can modify if you feel this we can modify because if the name will be big so once automation will create, it will just have the small information into that because Salesforce will not allow us to create complete name during that time. 
+ 14:49: Yeah, I see, I see, I see. 
+ 14:51: OK, I see. 
+ 14:52: And also I have another question about the Asana tickets. 
+ 14:56: So once a form is submitted, out of all those forms, how, how many of them are just tasks and how many of them are gonna be turned into campaigns? 
+ 15:08: So, if we, if we get any request for the event, webinar, and so email, if for event, if we get any request, definitely we need a Salesforce campaign for that particular thing. 
+ 15:24: For webinar, if any request is submitted for webinar, then we are going to need a Webinar campaign for that for that particular and in that we need a subtype because if they want an event promotion that time we need an email campaign for that. 
+ 15:42: So I can show how the event ticket will look like. 
+ 15:54: Let me. 
+ 15:57: Find a perfect example. 
+ 16:17: So, OK. 
+ 16:21: So this was a ticket for the webinar. 
+ 16:23: OK. 
+ 16:24: So this was the main ticket which the stakeholder has submitted, so they have this all as a subtask. 
+ 16:32: So, in this, you can see that there is one subtask which belongs to the webinar campaign naming. 
+ 16:43: OK, so this was the main ticket? 
+ 16:45: Which was submitted. 
+ 16:48: So, here it was a subtask which need a webinar campaign naming. 
+ 16:53: So here the campaign name was submitted. 
+ 17:02: OK, I see. 
+ 17:03: OK, so after that, once we will start the promotion for that because we will, because we are going to use for the email promotion, we are going, we are not going, we will be not using this event name. 
+ 17:17: The campaign belongs to the event because we are just going to track the registration attended or who has not attended into this campaign. 
+ 17:26: Rest all, we are going to who has clicked the email, who has opened the email, we are going to. 
+ 17:33: Have that into the. 
+ 17:35: I can, there is another subtask related to email. 
+ 17:41: These, these are all subtasks that are related to which, to, to the webinar, to the webinar, yes, so few subtasks, the complete webinar planning doc, so it will be, it belongs to the stakeholder only, naming it is going to belong to the mops person and create a webinar campaign in SFDC. 
+ 18:03: So for webinar, the campaign will be automatically created by the Salesforce, once they will be creating a Zoom. 
+ 18:14: The webinar, the, the campaign will be automatically created. 
+ 18:19: We are just going to share the name to the stakeholder. 
+ 18:23: OK. 
+ 18:24: OK, so after that, add webinar to the event calendar. 
+ 18:28: So this one is something webinar set up will be done by the stakeholder. 
+ 18:33: So audience, Felipe is working on the audience. 
+ 18:37: So webinar kickoff meeting, this is something related to stakeholder and banner request, it will be going to the creative teams. 
+ 18:47: So this subtask will be, so about the landing page. 
+ 18:51: To publish the landing page, it will be going to the web team, and sometimes to create a landing page, I get a request. 
+ 19:00: So I usually for a few stakeholders, I create the landing page to them and To test the form, mops teams are responsible for that. 
+ 19:12: So this one we have done, and final publish will be done by the web team. 
+ 19:19: And after that, if you will see email, webinar email creation, that is something which mops team are going to handle. 
+ 19:28: So while creating for this request, we are going to get the, we need to have the email campaign. 
+ 19:36: And why we need the email campaign? 
+ 19:38: Because you can see how many people have clicked the email, how many people have opened the email. 
+ 19:45: So this all will be coming once we will have the type as an event, or sorry, type as an email and type subtype as a promotion. 
+ 19:55: For the event, we will be having the status. 
+ 19:58: You can see who, who has attended the webinar, who were absent. 
+ 20:03: During the webinar attended live. 
+ 20:10: Mhm. 
+ 20:12: So, Yeah, yeah, yeah, yeah, is there like a? 
+ 20:19: what I say, like, is there like a, a, a specific document? 
+ 20:23: I'm pretty sure you sent me a document before. 
+ 20:25: I don't know if it is, it has all this information or not. 
+ 20:31: not be for which you want a document, I, for example, for example, Once, all these subtypes, each task has a subtask, right? 
+ 20:43: Yes. 
+ 20:44: is there like a, an, I think you sent me like a document before that sends like that shows each task and the subtasks that it automatically has, no? 
+ 20:56: I don't remember. 
+ 21:00: But is there such thing? 
+ 21:02: Do you have like a document that has such information? 
+ 21:05: No, I don't have that. 
+ 21:14: That is something even I need to look into. 
+ 21:21: Similarly, you can check for the event. 
+ 21:24: , OK, it was not the thing that you sent, yeah, that was the revised taxonomy. 
+ 21:33: Yeah, it was at that I mean yeah, it was not, yeah. 
+ 21:39: I think it was campaign type campaign subtype, OK. 
+ 21:45: A quarter. 
+ 21:47: Yeah, cause, I think I do remember, that's why I should start like, you know, recording the meetings because I do remember I They they were talking about each, task and the subtask that it automatically was assigned to. 
+ 22:05: I think it was Samantha who was talking about that the other day when she was explaining to me how it works. 
+ 22:10: Yeah, so maybe she may be having because for the MOP's intake form, she was the person who was, who is working now also. 
+ 22:20: So there is. 
+ 22:23: Things which need to be updated. 
+ 22:27: So, I'm not getting all the event tickets. 
+ 22:36: So the reason why, like, I'm asking you about this is because I want to have like, I want to put all this information, all these documents that are related to this, to all the intake process and the maps intake process to add these documents and all this information and context to my, AI agents knowledge base, you know. 
+ 23:01: So it, when it acts and when it takes takes decisions, it, it would have like enough context and enough understanding of the process when, you know, acts autonomously when I'm not there to tell it what to do. 
+ 23:15: Ok, no need to do. 
+ 23:18: Yes, sir, no, I got it. 
+ 23:20: What you want this, and even similarly, if we can, I, if we have the document for the events also, because for the events also we will be following the same process and. 
+ 23:35: So if this is for the, the thing which I shown you is for the. 
+ 23:43: Webinar. 
+ 23:44: Similarly, we will be having for the event also because event landing page, usually it will be created by the web team only. 
+ 23:52: So we are not mostly means, because I'm only the person at present who is creating the landing page. 
+ 24:01: So nowadays, I don't get any requests for creating a landing page for the events. 
+ 24:07: For webinar, I get, but for the events, I don't get. 
+ 24:09: So, In that case, the landing page will be created by the web team. 
+ 24:14: After that, we will be the person for the event. 
+ 24:18: We are the person who will be responsible for the name, campaign name, and the email promotion, and to test the form. 
+ 24:26: On the page is live, so we will be testing the form for the event. 
+ 24:31: So, definitely there should be some document. 
+ 24:36: OK. 
+ 24:44: Cause, so one of the things I was working on, for example, can I, let me see, let me see if I can share this. 
+ 24:55: Intake and naming convention confirmed. 
+ 24:59: I'm looking at, one of the agents I was working on. 
+ 25:37: So So yeah, so for example, I'll share this doc. 
+ 25:44: Can I please share, I don't know if you're still sharing screen or not. 
+ 25:47: No, you can share your screen. 
+ 25:50: OK, I'll, I'll share my screen with you and you can give me your, yeah, right here. 
+ 26:09: Can you see, can you see now the, the scale that was created? 
+ 26:13: Yes. 
+ 26:15: So, you're gonna start from here and So the part. 
+ 26:23: that I wanna get to is. 
+ 26:26: Is this one here. 
+ 26:28: Also, whether whether also decides whether the request needs an SF campaign or not at all. 
+ 26:36: So the SFPs campaign column here, for example, here, it's gonna. 
+ 26:43: Yes. 
+ 26:45: Salesforce campaign or not. 
+ 26:46: Tell me if what I did here is right or not. 
+ 26:49: For example, the webinar request, yes, it, it needs a Salesforce campaign resolves a pair of campaigns, ta ta ta here. 
+ 26:58: For example, event. 
+ 27:01: as of this campaign only. 
+ 27:04: As of this campaign on the multiple. 
+ 27:07: All these things Yes, it is fine means for webinar. 
+ 27:13: I can resolve that, yeah. 
+ 27:18: Yes, this is fine because for webinar request, definitely we are going to need a campaign name and so. 
+ 27:31: So my question is that in this, it will be creating single campaign name or it will be creating some other campaign name for the. 
+ 27:42: so, my concern is that for webinar request, we need two types of campaign. 
+ 27:47: One will be based on the event, event, and about the webinar and all everything, the, the naming which you have shown based on that, and other in campaign we will be needing, we will be need for email. 
+ 28:06: Email, OK, OK. 
+ 28:07: So, so the event, you're, so you're saying the webinar needs two types of campaigns. 
+ 28:11: Yes, one campaign will be the in which the type will be the event. 
+ 28:17: And the subtitle will be the webinar, but in the naming convention, it will be showing as an event and rest all the information which you already shared into the chat, so that this information and it should be billed like that. 
+ 28:31: And second campaign which the mops team will be using, that will be the email campaign because since we are going to follow the same naming convention, so if your AI can Delivered us an email campaign at the same time with the same information, only the, only the type will be the email and rest all information should be the same. 
+ 28:55: That is, the stakeholders are not going to provide to us, that is something which we will be building on our end. 
+ 29:03: OK, so, Yeah, so I'm trying to understand that, right? 
+ 29:08: So the webinar needs two types of campaign, and is the, the one for the webinar and everything, and the one, the the one email campaign, right? 
+ 29:16: Yes. 
+ 29:17: And one are are those subtasks or those are like they become separate tasks? 
+ 29:24: No, that we can in that only it should be the subtask because we will be having a one ticket only for the webinar just I shown you the example in that if, if the AI can deliver that thing at a single place means I can say that. 
+ 29:42: The mops are the person who is going to create the name campaign into the salesforce. 
+ 29:47: So for the first step, I can believe that if we are creating the salesforce campaign into the salesforce, so if the same time if we get the. 
+ 30:00: Webinar campaign name and the email campaign name, we can create at the same time. 
+ 30:04: For example, the way I shown you into the, into my campaign history, I just use the webinar campaign name in that we have created another email campaign. 
+ 30:18: I just added that webinar campaign name as a parent campaign into the email campaign. 
+ 30:23: To keep it at a single place. 
+ 30:26: OK. 
+ 30:29: Yeah, OK. 
+ 30:30: Similarly, similarly for the event also we will be needing two campaigns. 
+ 30:35: One campaign will be for the event, and so there should be one question also means if you can ask if you want to promote the email, if they said yes, then you can build the email campaign based on that. 
+ 30:55: so what do you mean by promoting email? 
+ 30:57: Email me if you want an email promotion like that. 
+ 31:00: Email promotion, sometimes email promotion is not there. 
+ 31:04: So if they just want a campaign from our end, they don't want to promote anything that time we don't need email campaign. 
+ 31:12: But if they want any promotional need to be sent from the mops team to the customer prospect or anyone that we need a campaign over there. 
+ 31:23: OK, so, OK, so for webinars, for webinars, what if they want an email campaign with it, they will ask us to do it. 
+ 31:32: If they don't need an email campaign, then we just create the webinar campaign like normally without email campaign. 
+ 31:37: OK, yes, so we can add one portion over that, it is there. 
+ 31:43: I can, I just, all these things may be able to be added to the, to the form. 
+ 31:51: Yes, my, yes, exactly. 
+ 31:54: I wanted this thing should be added into the form and I can see. 
+ 32:02: Yes, can I just share my screen for a while? 
+ 32:05: Yeah. 
+ 32:07: Yeah. 
+ 32:08: So I got the form for the webinar. 
+ 32:11: So this is the form. 
+ 32:13: OK, so this is the exactly form which we get from the stakeholder to create a landing page. 
+ 32:20: Here you can see that webinar title, short title, short description, time zone, what it covers, webinar detail, and here you can see that, do you require the promotional email as a part of this request. 
+ 32:34: So this type of thing we should have into the campaign creation form also. 
+ 32:40: What I believe. 
+ 32:41: If they want promotional email option, yes, then the AI should, if they said yes, so that time along with the webinar campaign name, we should be getting the email campaign. 
+ 32:54: Oh OK. 
+ 32:57: OK. 
+ 32:57: And can you please like send me the link of this form? 
+ 33:03: Yes, I already shared you on a slide just now. 
+ 33:06: OK. 
+ 33:07: OK. 
+ 33:08: So, This is the form. 
+ 33:13: So this is something the webinar. 
+ 33:16: Form is there So such type of means if you are working on a form of Asana maybe with Sam or anyone, so that time you can mention that if they are building any new form for the campaign creation. 
+ 33:34: So that time they can ask, you can ask to them if you want, means if it is a webinar or event, we can add this type of question. 
+ 33:44: Do you require the promotional email as a part of this request? 
+ 33:47: If they said yes, that time AI can share along with the event, along with this type of name. 
+ 33:56: You can see, along with this type of event name, they can just share the email promotion tool. 
+ 34:05: You can see that this is an event campaign and Maybe there is some, yeah, this is an email campaign for that particular event only. 
+ 34:17: OK. 
+ 34:19: So you can see that because it is, it is manually created, so there is. 
+ 34:26: what I usually do, I just try to follow the similar pattern so that it should not be affected, so. 
+ 34:34: If the AI can also, instead of this event and event and trade show, we just need email and rest all should be the same. 
+ 34:46: Like this only. 
+ 34:50: OK, I see it. 
+ 34:51: So, and for the Webinar form. 
+ 34:58: Once, once it is submitted, where, where does it show? 
+ 35:03: Does it show in Asana or does it? 
+ 35:07: Does it not? 
+ 35:08: Yes, it will show. 
+ 35:09: Where do you get the submission? 
+ 35:11: Here in the mops intake, you can see. 
+ 35:16: no values. 
+ 35:17: We have one section over here, no values. 
+ 35:20: Yeah, OK. 
+ 35:22: Here, so, yeah, that's one of the things, I, yeah, OK, so under the section, no values, it's the one that, like, for example, that are where all the, for example, let's say all the submissions took place, right? 
+ 35:35: Yes. 
+ 35:37: Here you can see that yes, there is an event some request is there, so. 
+ 35:45: this is the main. 
+ 35:48: Ticket, and here, this is an event, yeah, so we get, got the example for the event too. 
+ 35:55: So once the event was submitted, the request was submitted, so these all are the subtasks which got created automatically. 
+ 36:05: OK. 
+ 36:06: OK, so this was the subtask. 
+ 36:08: So she just assigned me this task, and I already shared the naming to her as per your AI agent because I saw how you are working, means how you are creating and what we discussed with Jenny that the year and the quarter will be at the end. 
+ 36:28: So I just. 
+ 36:30: Submitted this To her, I created the Salesforce campaign and shared the name with her. 
+ 36:38: OK. 
+ 36:44: So So one of the things that I noticed also is that sometimes there is like a back and forth in the comments that that's, you know, that might be something that I don't know if the AI agent can do. 
+ 37:00: I'm pretty sure they can, but it's gonna probably Take it out of its own, you know, craft a little bit, so I was gonna ask, so if you wanna create like if you want to create an AI agent for that, you gotta, you gotta want to avoid the back and forth as much as possible and for things to be as straightforward as possible, that's why I, I, that's why I told you I'm even thinking about probably. 
+ 37:27: Creating a form or you helping me like creating a form for this process to run smoothly without going too much back and forth in the comments, you know, so. 
+ 37:43: Yes, definitely means even my concern was the same, and I discussed the same because first thing before in working on this process we need to have one proper form set up over there. 
+ 37:56: So first of all, let's, let's start with the scratch means just let's have a form first for the campaign creation only and. 
+ 38:07: Maybe that form, if anyone is submitting the campaign creation request, all the mandatory fields, because if you will see over here, we in the salesforce also, we have a few mandatory fields which should be into the form, means the name that we are going to share to them, that is fine, but type should be submitted by the stakeholder. 
+ 38:30: What PCI they want, it should be submitted by the stakeholder. 
+ 38:35: And China, that is something we can add, no issue, but if we can add into the form, that is also, it will be good for us only. 
+ 38:45: For the currency, it usually takes US dollar only, so it's not too much mandatory. 
+ 38:53: Campaign region, definitely we have this type of regions over here into the campaign. 
+ 38:59: So this, yeah, yeah, those regions are already there, yeah, and program type which type of the campaign they wanted means it will be a brand awareness or market development or sale acceleration or the partner maybe this so we should means we can plan. 
+ 39:18: Yeah, yeah, yeah, go ahead, sorry, sorry, sorry. 
+ 39:20: No, we should work on first on the campaign creation form, and once the campaign creation form worked properly, then we can implement our AI agent to have the naming convention accordingly to that, and after that we can just jump onto the webinar and then we can jump onto the event. 
+ 39:38: Yeah, yeah, absolutely, absolutely, and, also, I want to know like what are the, some of the, for example, tasks, don't go, for example, just give me one example, for example, of a task that does not become like a, a campaign, a salesforce campaign. 
+ 39:57: Cause my, what my AI agent is assuming now, he's assuming every single task is gonna become a salesforce campaign. 
+ 40:06: And then I corrected it, and I gave it access. 
+ 40:10: I told him to go to to go to a sauna and the Salesforce to see, notice like patterns that, you know. 
+ 40:21: Which pattern, what are the things that, what are the campaigns, the tasks that the goal to become a campaign, and what are the patterns you follow to find that, you know what I mean? 
+ 40:31: Yes, so in this, I can tell you that for the reporting, we don't need any campaign for that because that is something which will be for reporting, we don't need any campaign should be created. 
+ 40:47: So in that case. 
+ 40:48: We already have the existing campaign into the sales force, how they want to create, or maybe we don't need anything for this reporting. 
+ 40:59: For the list import, I can say that if we are creating a webinar campaign or event campaign, so we are doing the list import for that, for that particular campaign only because if webinar is over, we will be doing the list import. 
+ 41:13: If event is over, we are. 
+ 41:14: Going to do the list input for that particular campaign which we have already created during our event creation. 
+ 41:21: We will not create any separate campaign for the list import to for the reporting, we will not create any separate campaign for form request. 
+ 41:32: This in this, we, if we have created a campaign for our webinar, we will, we don't need any separate campaign need to be created. 
+ 41:42: We're using the same campaign to update a form into the landing page. 
+ 41:48: OK. 
+ 41:48: What is that? 
+ 41:49: What, what's the name of the task you gave me? 
+ 41:53: From requests. 
+ 41:55: Yes. 
+ 41:56: So here, here it is very subjective. 
+ 41:58: Sometimes what happen if, if landing page is created by the web team, the stakeholder just request for a forms request. 
+ 42:07: So in that case, because the landing page was created by the Salesforce team for the event, that time, what we need, we need a campaign name that needs to be created for. 
+ 42:20: The event and we need a campaign ID to update a form into the landing page. 
+ 42:26: Or if it is a webinar, we already working on that. 
+ 42:29: If, if we already created a campaign name for the event and webinar, so we don't need separate campaign name for the form request. 
+ 42:40: OK, so tell me if I'm right or wrong here or whether, whether you think it's right or not. 
+ 42:45: So for example, for all these, tasks that don't, that do not need a salesforce campaign, what I'm thinking is just take those tasks and for example, like, alert the, like, put an alert in Slack, for example, in the mops team Slack. 
+ 43:06: I don't know if that's a good idea or you think it's not. 
+ 43:09: You tell me. 
+ 43:10: For, for example, what I'm trying to do is that I'm trying to, so the most important thing for me is that right now. 
+ 43:16: Oh, sorry. 
+ 43:18: Sorry, for the most important thing for me is the Salesforce campaign name creation, so creating the name and creating the specs for the Salesforce campaign. 
+ 43:28: Once that's done. 
+ 43:30: I then the process should be finished, but if the task that was submitted is not going to be a salesforce campaign, what I'm going to do is just send that to Slack and just to alert the team there is this new task right here and not go through the other route. 
+ 43:51: Yeah, that is fine. 
+ 43:52: Yes, it will work because hm for the reporting and for the list import, usually we don't need any. 
+ 44:04: Means for the least import means this is something rarely we get means any event which is hosted by our partner, OK, and we are not hosted that particular event or anything webinar. 
+ 44:20: In that case, we are only, we will get. 
+ 44:25: We need to create an SFDC campaign for the list import, but if it is hosted by us that time, definitely we are going to create a campaign. 
+ 44:34: So. 
+ 44:36: Here, it is the CMO. 
+ 44:40: See it's making. 
+ 44:45: It is already created. 
+ 44:56: This is for reporting. 
+ 44:57: Definitely we don't need any means, in any case, we will, we don't need any campaign because for reporting, never we don't need any campaign for. 
+ 45:08: List import and the form request, it is. 
+ 45:12: I can say that 30%, there will be a chance maybe we can need a form, we need a campaign name, but 70%, there will be, we don't need a campaign name. 
+ 45:24: So it's very. 
+ 45:27: Yeah, you will also get confused because The process is very different. 
+ 45:35: It's going very different because for the list input, 70% of the time we don't need any campaign name. 
+ 45:40: Separate campaign should be created. 
+ 45:44: OK. 
+ 45:45: I see here it was a Wimbledon. 
+ 45:47: So this is something which we don't have any webinar, we don't have any event page, we don't have any webinar page, but we want to do the list input. 
+ 45:58: This was something which was done, so the stakeholder has submitted the campaign request also for this particular year. 
+ 46:07: You can see. 
+ 46:12: Yeah. 
+ 46:17: Yeah, so So yeah, I think as I was saying, like, then in this case, I would, if it doesn't need like anything like that, I would just put it like an alert in the Slack group and the mops team group message, and then, for example, you're probably someone like you will decide whether, you know, what to do with it. 
+ 46:40: You know, Cause then a human decision is better than probably an AI agent. 
+ 46:47: Yeah, no, and then, so just wanted to confirm, are you working on the form, Asana form too, or? 
+ 46:55: Someone else is working. 
+ 46:58: I think Priyanka is working on it. 
+ 47:00: OK, a son at home. 
+ 47:02: Yeah, I think she was working on it. 
+ 47:03: I, we had like a, a call about that, and she told me, I, I sent her all the things that I need for. 
+ 47:12: like, for this process to work, like, you know, smoothly and for it, for it to run smooth. 
+ 47:20: The the form to. 
+ 47:22: For, yeah. 
+ 47:24: For this process to work smoothly, so yeah. 
+ 47:27: So and I I mean, I can get in a call with her again today or probably we can work on it, me and you separately, so. 
+ 47:36: So means, OK, yeah, I mean, we can work on it and even you can just let me know or you can just train me how if we can build using a cloud, the form into this by taking the sana saptas or maybe we can just update something into the cloud. 
+ 47:57: if we can just use the sana and after that we can build any form using the cloud. 
+ 48:02: So if that is possible, we can follow that process too, and we can start building a form using a cloud and Maybe some step we can just create over there if that works fine, means if you feel that it is feasible, so you can give me, you, you can, you can train me or give me a training on that, and we can work together and what will be the mandatory fields and how the flow should work. 
+ 48:29: We can work accordingly like that. 
+ 48:32: Yeah, yeah, yeah, absolutely, absolutely. 
+ 48:37: So please let me know, and one thing means about the. 
+ 48:43: Weekly update which you are sharing. 
+ 48:45: So just I saw in today, so. 
+ 48:49: Can we just include, I can share, see, we have the email calendar over here. 
+ 48:56: OK, so I just saw the Ayushi's comment. 
+ 48:59: So on Thursday, what happened, we usually have the call with all the stakeholders. 
+ 49:05: So if any ticket which is not assigned to anyone or if any urgent request we are getting into that. 
+ 49:12: So maybe if we can add, you can see over here, there is an email calendar. 
+ 49:23: Oh, what happened? 
+ 49:27: OK, you can see that email calendar is there. 
+ 49:30: So, can we add this, maybe for the next week, what are the emails which need to be going? 
+ 49:39: On the slide, means if you can, you can see here the email sent. 
+ 49:44: So these are the proposed emails maybe for this week from 13th to maybe from Thursday to Thursday if you are planning to do, or from last Thursday to this, if these are the emails which we have, which are in the queue and which are need to be going next week or this week. 
+ 50:04: So something like that because it can. 
+ 50:08: It, it will be documented also that yes, these are the emails which are proposed over here for the, this week or the coming weeks. 
+ 50:16: So this is something which we can add additional emails, sir. 
+ 50:20: What I believe, because earlier I used to have this call with the stakeholder. 
+ 50:26: So now from last one or two months, Ayushi is doing this thing. 
+ 50:29: So, what I used to do, I used to share with the stakeholder that yes, these are the emails for the next week, which we have planned and we are working on this particular email for the next week. 
+ 50:41: This email will be going out and So this was, I thought means that thing, something which I didn't find into that weekly report means all the tasks that it was perfectly fine means this was the task and we have this much on the task, but if we get more. 
+ 51:01: Briefly, if we want to go for that particular slide, that yes, because that call is majorly based on the emails, campaigns, and events which are planned or which will be, which they are going to plan for the next few weeks. 
+ 51:17: So that call is basically for that, and I saw the comment of Ayushi if she wanted to use this slide for our weekly call. 
+ 51:26: So I think if we can include this email, that this all email, we are going to plan for the next week. 
+ 51:34: So Buddy. 
+ 51:39: You are on a mute. 
+ 51:40: Yeah, yeah, yeah, I just unmute it. 
+ 51:42: So what you said that I need to add the The email, whatever this email calendar and, the, the email planning to the, like for example, add it as an upcoming task and as a task, OK, upcoming task. 
+ 52:02: If it is possible, yeah, and this is the first thing, and if, because what happened, these are the, I can show how the email is working first of all because it can help you understand the process exactly so. 
+ 52:19: Suppose this was a London partner party, summer, it was a summer party, and I got a request from the stakeholder that we need to promote 4 emails over there. 
+ 52:32: So, on 14th July, 11th August, 3rd September, and 11th September. 
+ 52:37: So what I did, I created this task manually. 
+ 52:41: So I created these 4 types of tasks based on the dates which they shared, and after that what I did, I just. 
+ 52:49: I can create one example like that. 
+ 52:54: For example, this is the. 
+ 52:58: I just created like this partner summer party. 
+ 53:03: OK, so send 5, for example, and after that, suppose, for example, they wanted this email to go out on 17 July, I, I did over here. 
+ 53:15: I assigned this to me. 
+ 53:18: After that, I just opened this task, and from here, what I did. 
+ 53:25: mhm. 
+ 53:27: So, mob syntech, I have selected mob syntech as a project and the project type will be the email because we need to send an email. 
+ 53:36: Mob status I added as assigned or if I'm not adding, won't be an issue. 
+ 53:40: After that, what I did, I just converted it to milestone. 
+ 53:46: OK. 
+ 53:47: Milestone. 
+ 53:48: I have converted it to milestone. 
+ 53:50: Then if you will see over here, means mobs intake, and if you will go into the Email send. 
+ 53:58: So on 17th now you can see. 
+ 54:02: Yeah, here you can see that the subtask which I have created, Partner Summer Party and 5. 
+ 54:10: Yeah, OK, so this is something why, why I like this process because If we follow the email calendar like this, with the audience clash will not happen because we have, we should not send any email, two emails on a single day to the same audience. 
+ 54:33: So this can make it easy for us, everyone, because I can see that here are two different email requests. 
+ 54:42: Both are for the Latin. 
+ 54:44: So this one, by seeing the name, I can understand this is for the Brazil region only, and this is also for the Latin, but it will escape Brazil. 
+ 54:56: OK, so this is the for, it's for different audiences, so yeah, yes, so. 
+ 55:04: So, so it will go for the the Spanish audience and it will go for the Portuguese audience. 
+ 55:10: So this is something, and if I, we can share this thing and even, even maybe tomorrow I can just tell the team, please create a milestone because in our mobs call, I can just request to, to Felipe and Ayushi to have. 
+ 55:29: The email calendar set up properly, we should have the milestone. 
+ 55:34: Then it means it can show to the on the Thursday call that yes, we have we have a plan of 7 to 8 emails next week and these emails will be going out. 
+ 55:48: So this is my thought. 
+ 55:50: First thought if we can implement this thing in our weekly report, it will be, it will. 
+ 55:57: Show our more work that I believe. 
+ 56:00: Yeah, yeah, yeah, no, absolutely, yeah, that's, I need feedback. 
+ 56:04: I need feedback like that to, you know, improve those automations. 
+ 56:06: And one thing, second thing, second feedback if it is possible or not. 
+ 56:11: So just I'm showing this was the first scenario. 
+ 56:15: Second scenario is that maybe where it went, OK, this, London. 
+ 56:22: Let me refresh. 
+ 56:23: OK. 
+ 56:23: OK. 
+ 56:24: So what happened now you can see that this subtask is available. 
+ 56:28: So what usually happen over here, if I will close this subtask, in case I will close this means this is, this event is over and I will just close as completed, so. 
+ 56:43: It will get removed from our calendar. 
+ 56:47: OK. 
+ 56:48: OK, so my concern is my means my thought is that this is the first thing which we can show that upcoming email for the next week or if we can get the information which the subtasks are closed, which the email request tasks are closed based on the milestone for the last week. 
+ 57:12: Means in that case, what we can show them, these are all the emails which we have sent last week, successfully. 
+ 57:20: But does it show here? 
+ 57:22: Huh? 
+ 57:23: Does it show the emails that are that were sent last week? 
+ 57:27: Does it show anywhere in the sauna the this information? 
+ 57:31: not into the calendar. 
+ 57:34: OK, so my concern, so that, that is my, that is the same, that is my concern also, and that is my thing, which is, which I found that yes, means maybe instead of going, it should be marked with some other color over here that yeah, this task was over. 
+ 57:54: OK, completed. 
+ 57:57: OK. 
+ 57:59: Yes, we can, we can see that task. 
+ 58:03: Maybe you can see if I just added the completed task over here. 
+ 58:08: Before it it is incomplete, so it will show the upcoming events if the filter is completed, then you can see that, yeah, this is the email which we have sent maybe last week from 7 to. 
+ 58:27: yes, yeah, I see. 
+ 58:30: OK, does it have an option where it shows everything, the incomplete incomplete? 
+ 58:41: Maybe if we can add a filter. 
+ 58:50: President You know, it's, it's OK. 
+ 59:00: I mean, I'm pretty sure, I'm pretty sure with the Assa MCP and if you just give it the right prompt, it will be able to see the incomplete and complete tasks. 
+ 59:10: So yeah, I, I don't think you have to worry about that. 
+ 59:12: Let me just add this as a note here. 
+ 59:20: So this thing we can maybe tomorrow when on the mops call I can just let Jenny know means how we can make more efficient weekly report because this is something, this is the main task which the mops team is handling the email send. 
+ 59:38: And if we, if we, if we make it more efficient or more visibility on the emails which we sent last week and which we are sending in the upcoming week, so I believe that can be a more helpful because this was the thing which I was following when I used to have that call, means when I used to conduct that call and I used to share like this only. 
+ 1:00:04: So that was my thought only. 
+ 1:00:07: If you feel that, yeah, if it, it is fine and it can impact, it has a good impact then. 
+ 1:00:16: Yeah, so, yeah, I mean, I'll do, I'll, I'll make sure I'll add that to the MP's weekly review. 
+ 1:00:22: Is there anything else you would like me to change in that one? 
+ 1:00:25: I don't know if you saw it or not. 
+ 1:00:28: If there is, yeah, is there anything else that you would like me to change or add? 
+ 1:00:37: So, So we can head over here means planning for the next week. 
+ 1:01:29: So, here, in this, we can add one that slide for the email, upcoming email for the next week. 
+ 1:01:36: This will be the emails. 
+ 1:01:38: Which we will be sending next week, like that something. 
+ 1:02:05: I can, I can, means I will check once more and maybe. 
+ 1:02:12: I can get something if we can add. 
+ 1:02:15: Maybe for this week, you can just add one thing for the upcoming week until the time if we can just find something for the past email, we can make it like that. 
+ 1:02:27: OK, OK. 
+ 1:02:28: That works. 
+ 1:02:29: That works. 
+ 1:02:30: Yeah, I mean, I need feedback, especially on that one so I can, you know, keep changing it and tweaking, so, yeah. 
+ 1:02:36: OK. 
+ 1:02:37: No, and I took a lot of time, a lot of your time today. 
+ 1:02:42: I know, I took a lot of your time. 
+ 1:02:43: By the way, tomorrow I will not be able to work because we're gonna.

@@ -14,11 +14,14 @@ Creates the Salesforce side of a request: the campaign record and its member sta
 ## Process
 
 1. Take the classified + named request (from `intake-classification` and `campaign-naming`).
-2. Determine the campaign type (Email Campaign, Event/Webinar, etc.).
-3. Look up the required member statuses for that type in the table below.
-4. **If the campaign type isn't in the table, or you're not certain the statuses are current, say so and ask** rather than defaulting to a generic status list.
-5. Propose the full spec (name, type, dates, statuses) and confirm before creating anything.
-6. Use the Salesforce MCP to create the campaign record and configure member statuses.
+2. **Check the gate first:** look up the request's Asana `Project Type` in the "Known request types" table in `intake-classification/SKILL.md`. Only continue if it's one of the confirmed campaign-producing values (`Webinar Request`, `Event (+ SFDC Campaign)`, `SFDC Campaign only (single)`, `SFDC Campaigns only (multiple)`, `UTM(s) (+ SFDC Campaign)`). For any other `Project Type` where the non-campaign classification is unconditionally confirmed (already in the table), just skip the task silently — don't create a campaign, and don't post a "no campaign needed" note/comment either (`intake-classification` handles alerting the team via Slack for these). Only speak up if the `Project Type` is missing or ambiguous and needs a human call.
+   - **Exception — `List Upload` and `Form Request` aren't unconditional skips** (per Harish, 2026-07-13): before skipping, check whether a Salesforce Campaign already exists for the named event/webinar. If one exists, skip normally (use the existing Campaign, don't create a new one). If none exists — e.g. a partner-hosted event with no Acquia Campaign (List Upload), or a landing page the web team built ahead of any Campaign (Form Request) — treat it like a campaign-producing request and continue to step 3.
+3. Determine the campaign type (Email, Event, Webinar, etc.) and whether this request needs one Campaign record or more than one. Webinar/Event requests resolve to a Webinar/Event-type Campaign *and* a separate Email-type Campaign **only when** `intake-classification` recorded the promotional-email flag as yes — if no promotional email was requested, create just the single Event/Webinar Campaign.
+4. **When creating a paired Event/Webinar + Email Campaign,** set the Event/Webinar Campaign as the **Parent Campaign** of the Email Campaign (Salesforce `ParentId` field) — this is how Harish keeps the pair anchored to a single place instead of two disconnected records. Use the naming pattern from `campaign-naming/SKILL.md` step 6 (identical name, `Channel` segment swapped) for the child.
+5. Look up the required member statuses for that type in the table below.
+6. **If the campaign type isn't in the table, or you're not certain the statuses are current, say so and ask** rather than defaulting to a generic status list.
+7. Propose the full spec (name, type, dates, statuses, parent/child linkage if applicable) and confirm before creating anything.
+8. Use the Salesforce MCP to create the campaign record(s) and configure member statuses.
 
 ## Campaign type → status scaffolding (PLACEHOLDER — VERIFY)
 

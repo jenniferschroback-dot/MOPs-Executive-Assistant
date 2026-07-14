@@ -27,6 +27,6 @@ Asana, Salesforce, Jira, Slack (all connected as of this setup). Pardot is used 
 
 ## Known pain points
 - **Manual intake** — requestors fill a form; MOPS reads, interprets, and re-enters the data by hand into Asana tasks and SF campaign records.
-- **No naming enforcement** — campaign names drift from convention; SF records get created inconsistently, breaking reporting and attribution. _(Convention now defined: `type_subtype_region_description_year_quarter` — see `.claude/skills/campaign-naming/SKILL.md`.)_
+- **No naming enforcement** — campaign names drift from convention; SF records get created inconsistently, breaking reporting and attribution. _(Convention now defined: `Region_Channel_Product_Description_YYYY-Qn` — see `.claude/skills/campaign-naming/SKILL.md`.)_
 - **Wrong status scaffolding** — campaign member statuses must be manually configured per campaign type; missed steps break the Pardot ↔ SF sync.
 - **Slow time to launch** — the gap between intake submission and a fully configured, live SF campaign is measured in days, not minutes.

@@ -57,6 +57,11 @@ Active workstreams live in `projects/`, one folder per project with a `README.md
 
 For intake pipeline automation specifics not found in this project or the (pending) Obsidian vault, check the GitHub repo: https://github.com/forkanelebdi-ACQ/mops-ai-automation-routines
 
+## Routines
+Scheduled cloud agents (Claude Code routines) live in `routines/`, one folder per routine with a `README.md` (schedule, repo, environment, MCP connections, what it does). These run unattended on a cron schedule in Anthropic's cloud — separate from the skills they invoke, which live in `.claude/skills/`.
+
+**Active:** `mops-weekly-review-2.0` — runs `MOps-weekly-report` every Thursday 7 AM PT via a dedicated repo ([github.com/forkanelebdi-ACQ/MOPs-Weekly-Review](https://github.com/forkanelebdi-ACQ/MOPs-Weekly-Review)).
+
 ## Templates
 Reusable templates (e.g. session summaries) live in `templates/`.
 

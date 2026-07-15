@@ -23,6 +23,7 @@ Full capability breakdown (what each connection can actually do, plus what's aut
 Skills live in `.claude/skills/`. Each skill is a folder: `.claude/skills/skill-name/SKILL.md`. New skills get built organically as recurring workflows emerge.
 
 **Built:**
+- `campaign-gate-check` — single source of truth for whether a classified ticket needs a Salesforce Campaign (yes/no/needs-human-input); called by `intake-classification` and `sf-campaign-spec` instead of each re-deriving the gate
 - `intake-classification` — raw intake form → structured ticket data + Asana sub-tasks
 - `campaign-naming` — proposes a campaign name against the fixed `Region_Channel_Product_Description_YYYY-Qn` convention (code table still growing — ask before inventing a new code)
 - `sf-campaign-spec` — Salesforce campaign record + status scaffolding (schema is placeholder, needs verification against the org)
@@ -60,7 +61,9 @@ For intake pipeline automation specifics not found in this project or the (pendi
 ## Routines
 Scheduled cloud agents (Claude Code routines) live in `routines/`, one folder per routine with a `README.md` (schedule, repo, environment, MCP connections, what it does). These run unattended on a cron schedule in Anthropic's cloud — separate from the skills they invoke, which live in `.claude/skills/`.
 
-**Active:** `mops-weekly-review-2.0` — runs `MOps-weekly-report` every Thursday 7 AM PT via a dedicated repo ([github.com/forkanelebdi-ACQ/MOPs-Weekly-Review](https://github.com/forkanelebdi-ACQ/MOPs-Weekly-Review)).
+**Active:**
+- `mops-weekly-review-2.0` — runs `MOps-weekly-report` every Thursday 7 AM PT via a dedicated repo ([github.com/forkanelebdi-ACQ/MOPs-Weekly-Review](https://github.com/forkanelebdi-ACQ/MOPs-Weekly-Review)).
+- `mops-intake-pipeline` — chains `campaign-gate-check` → `intake-classification` → `campaign-naming` → `sf-campaign-spec` + `intake-tracking`; scheduled but currently **disabled** (manual "run now" only) until the live intake form and Salesforce write access exist — see `routines/mops-intake-pipeline/README.md`.
 
 ## Templates
 Reusable templates (e.g. session summaries) live in `templates/`.

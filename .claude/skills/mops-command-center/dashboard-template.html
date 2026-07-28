@@ -1,0 +1,250 @@
+<!--
+  MOPS Command Center — dashboard template (SNAPSHOT mode)
+
+  How it's used:
+  - The `mops-command-center` routine runs the skill, gets the `briefing` object,
+    replaces the __BRIEFING_JSON__ token below with that object (JSON), writes the
+    filled file, and publishes it via the Artifact tool to a STABLE file path so the
+    URL never changes.
+  - This is the snapshot (once-per-run) form. The LIVE form (self-refreshing via the
+    `mcp` runtime capability) is a later upgrade of this same page — see the skill's
+    plan; do NOT add window.claude.mcp calls until a real request/response has been
+    observed for each connector tool in an authorized session.
+  - Do not embed real briefing values in this template as sample data. The fallback
+    below is obviously-empty placeholder state only, so the layout can be reviewed
+    standalone.
+
+  Publish reminder: the Artifact wrapper supplies <!doctype>/<head>/<body>. Keep this
+  file as page content only (inline <style>/<script> are fine). Load the artifact-design
+  skill before the first real publish to calibrate the visual pass.
+-->
+<style>
+  :root {
+    --bg: #f7f8fa; --panel: #ffffff; --ink: #0d1626; --muted: #5b6472;
+    --line: #e4e7ec; --teal: #14b8a6; --blue: #3b82f6; --orange: #f97316;
+    --amber: #d97706; --red: #dc2626; --green: #16a34a; --track: #eef0f3;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0d1626; --panel: #131f33; --ink: #eef2f7; --muted: #9aa6b6;
+      --line: #26344a; --track: #1c2b41;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #f7f8fa; --panel: #ffffff; --ink: #0d1626; --muted: #5b6472;
+    --line: #e4e7ec; --track: #eef0f3;
+  }
+  :root[data-theme="dark"] {
+    --bg: #0d1626; --panel: #131f33; --ink: #eef2f7; --muted: #9aa6b6;
+    --line: #26344a; --track: #1c2b41;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 24px 20px 56px; }
+  .top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 16px;
+    border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 20px; }
+  .top h1 { font-size: 20px; margin: 0; letter-spacing: .3px; }
+  .top .grad { height: 3px; width: 100%; margin-bottom: 14px;
+    background: linear-gradient(90deg, var(--teal), var(--blue), var(--orange)); border-radius: 2px; }
+  .fresh { color: var(--muted); font-size: 13px; margin-left: auto; }
+  .fresh b { color: var(--ink); font-weight: 600; }
+  .alerts { display: grid; gap: 8px; margin-bottom: 20px; }
+  .alert { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px;
+    border-radius: 8px; font-size: 14px; border: 1px solid var(--line); background: var(--panel); }
+  .alert .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex: 0 0 auto; }
+  .alert.critical { border-color: color-mix(in srgb, var(--red) 45%, var(--line)); }
+  .alert.critical .dot { background: var(--red); }
+  .alert.warn .dot { background: var(--amber); }
+  .alert.info .dot { background: var(--blue); }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px; margin-bottom: 20px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; }
+  .tile .k { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .6px; }
+  .tile .v { font-size: 28px; font-weight: 700; margin-top: 4px; }
+  .tile .s { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .up { color: var(--green); } .down { color: var(--red); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  .card h2 { font-size: 14px; margin: 0 0 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); }
+  /* vertical bar chart — magnitude by category */
+  /* top-align columns so every fixed-height .plot shares one baseline (wrapped labels won't lift bars) */
+  .vbars { display: flex; align-items: flex-start; gap: 10px; padding-top: 6px; }
+  .vbars .col { flex: 1 1 0; min-width: 0; }
+  .vbars .plot { position: relative; height: 128px; }
+  .vbars .plot::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--line); }
+  .vbars .vb { position: absolute; left: 0; right: 0; bottom: 0; margin: 0 auto; width: 100%; max-width: 46px; min-height: 3px;
+    border-radius: 4px 4px 0 0; background: var(--teal); }
+  .vbars .vb.hot { background: var(--orange); }
+  .vbars .vv { position: absolute; left: 0; right: 0; text-align: center; font-size: 13px; font-weight: 700;
+    color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1; }
+  .vbars .vl { text-align: center; font-size: 10px; color: var(--muted); font-weight: 600; line-height: 1.2;
+    margin-top: 7px; word-break: break-word; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .scroll { overflow-x: auto; }
+  th { text-align: left; color: var(--muted); font-size: 11px; text-transform: uppercase;
+    letter-spacing: .5px; border-bottom: 1px solid var(--line); padding: 6px 8px; white-space: nowrap; }
+  td { padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .pill.red { background: color-mix(in srgb, var(--red) 16%, transparent); color: var(--red); }
+  .pill.amber { background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber); }
+  .empty { color: var(--muted); font-size: 13px; font-style: italic; }
+  .gaps { color: var(--muted); font-size: 12px; border-top: 1px dashed var(--line); padding-top: 12px; margin-top: 8px; }
+  .preview-banner { background: color-mix(in srgb, var(--amber) 18%, transparent); color: var(--amber);
+    border: 1px solid color-mix(in srgb, var(--amber) 45%, var(--line)); border-radius: 8px;
+    padding: 8px 12px; font-size: 13px; margin-bottom: 16px; display: none; }
+</style>
+
+<div class="wrap">
+  <div class="grad"></div>
+  <div class="top">
+    <h1>MOPS Command Center</h1>
+    <span class="fresh">Data as of <b id="fresh">—</b> · retro <span id="w-retro">—</span></span>
+  </div>
+
+  <div id="preview" class="preview-banner">Preview layout — no briefing data injected. The routine replaces this at publish time.</div>
+
+  <div class="alerts" id="alerts"></div>
+
+  <div class="tiles" id="tiles"></div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>Workload — open tasks by person</h2>
+      <div id="workload"></div>
+    </div>
+    <div class="card">
+      <h2>Email performance · <span id="w-email">30d</span></h2>
+      <div id="email"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>New tickets <span class="empty">(Project Type unset — proxy for new)</span></h2>
+    <div class="scroll"><table id="newtickets"></table></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h2>Overdue &amp; at-risk</h2>
+      <div class="scroll"><table id="risk"></table></div>
+    </div>
+    <div class="card">
+      <h2>Upcoming email sends · <span id="w-ahead">look-ahead</span></h2>
+      <div class="scroll"><table id="sends"></table></div>
+    </div>
+  </div>
+
+  <div class="gaps" id="gaps"></div>
+</div>
+
+<script>
+  // The routine replaces the token on the next line with the real briefing object.
+  const BRIEFING = __BRIEFING_JSON__;
+
+  const $ = (id) => document.getElementById(id);
+  // Rates may arrive as a fraction (<=1) or as an already-scaled percent (>1).
+  // Show one decimal below 10% so sub-1% CTRs don't round away to "0%".
+  const pct = (n) => {
+    if (n == null) return "—";
+    const p = n <= 1 ? n * 100 : n;
+    return (p < 10 ? p.toFixed(1) : Math.round(p)) + "%";
+  };
+  const delta = (d) => {
+    if (d == null || d === 0) return "";
+    const p = Math.abs(d) <= 1 ? Math.abs(d) * 100 : Math.abs(d);
+    const val = p < 10 ? p.toFixed(1) : Math.round(p);
+    return `<span class="${d > 0 ? "up" : "down"}">${d > 0 ? "▲" : "▼"} ${val}pt</span>`;
+  };
+  const esc = (s) => String(s == null ? "" : s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+  const emptyRow = (cols, msg) => `<tr><td colspan="${cols}" class="empty">${msg}</td></tr>`;
+
+  // Vertical bar chart for magnitude-by-category. items: [{label, value, hot, title?}].
+  function barChart(items, opts) {
+    const list = (items || []).filter(Boolean);
+    if (!list.length) return `<div class="empty">${(opts && opts.empty) || "No data."}</div>`;
+    const H = 128, PAD = 20;
+    const max = Math.max(1, ...list.map(i => i.value || 0));
+    return `<div class="vbars">` + list.map(i => {
+      const v = i.value || 0;
+      const barPx = Math.max(3, Math.round(v / max * (H - PAD)));
+      return `<div class="col" title="${esc(i.title || i.label)}: ${v}"><div class="plot">` +
+        `<span class="vv" style="bottom:${barPx + 5}px">${v}</span>` +
+        `<div class="vb ${i.hot ? "hot" : ""}" style="height:${barPx}px"></div>` +
+        `</div><div class="vl">${esc(i.label)}</div></div>`;
+    }).join("") + `</div>`;
+  }
+  const shortName = (n) => { const p = String(n || "").trim().split(/\s+/); return p.length > 1 ? `${p[0]} ${p[p.length - 1][0]}.` : (p[0] || ""); };
+
+  function render(b) {
+    if (!b) { $("preview").style.display = "block"; return; }
+    $("fresh").textContent = b.generatedAt || "—";
+    if (b.windows) { $("w-retro").textContent = b.windows.retro || "—";
+      $("w-email").textContent = b.windows.email || "30d"; $("w-ahead").textContent = b.windows.lookAhead || "look-ahead"; }
+
+    // Alerts (critical + warn first)
+    const alerts = (b.alerts || []).slice().sort((a, z) =>
+      ({critical:0,warn:1,info:2}[a.severity] ?? 3) - ({critical:0,warn:1,info:2}[z.severity] ?? 3));
+    $("alerts").innerHTML = alerts.map(a =>
+      `<div class="alert ${esc(a.severity)}"><span class="dot"></span><div>${esc(a.message)}</div></div>`).join("");
+
+    // KPI tiles
+    const unassigned = (b.alerts || []).filter(a => a.type === "urgent-unassigned").length;
+    const tiles = [
+      { k: "New tickets", v: (b.newTickets || []).length, s: "unclassified" },
+      { k: "Overdue", v: (b.overdue || []).length, s: (b.atRisk || []).length + " at-risk" },
+      { k: "On-time", v: pct(b.onTimePct), s: b.avgCycleDays != null ? b.avgCycleDays + "d avg cycle" : "" },
+      { k: "Null priority", v: b.nullPriorityCount ?? "—", s: "tickets missing priority" },
+      { k: "Urgent unassigned", v: unassigned, s: "need an owner" },
+    ];
+    $("tiles").innerHTML = tiles.map(t =>
+      `<div class="tile"><div class="k">${t.k}</div><div class="v">${t.v}</div><div class="s">${esc(t.s)}</div></div>`).join("");
+
+    // Workload bars
+    const wl = (b.workloadByPerson || []).slice().sort((a, z) => z.openTasks - a.openTasks);
+    $("workload").innerHTML = barChart(
+      wl.map(p => ({ label: shortName(p.name), title: p.name, value: p.openTasks, hot: p.name === "Unassigned" })),
+      { empty: "No workload data." });
+
+    // Email tile
+    const e = b.emailPerf || {};
+    $("email").innerHTML = `
+      <div class="tiles" style="margin:0">
+        <div class="tile"><div class="k">Open rate</div><div class="v">${pct(e.openRate)}</div><div class="s">${delta(e.openRateDelta)}</div></div>
+        <div class="tile"><div class="k">CTR</div><div class="v">${pct(e.ctr)}</div><div class="s">${delta(e.ctrDelta)}</div></div>
+        <div class="tile"><div class="k">Sends</div><div class="v">${e.sends ?? "—"}</div><div class="s">campaigns</div></div>
+      </div>`;
+
+    // New tickets
+    $("newtickets").innerHTML =
+      `<tr><th>Ticket</th><th>Submitted</th></tr>` +
+      ((b.newTickets || []).length ? b.newTickets.map(t =>
+        `<tr><td>${esc(t.name)}</td><td>${esc(t.submitted)}</td></tr>`).join("")
+        : emptyRow(2, "No new unclassified tickets."));
+
+    // Overdue + at-risk
+    const risk = [
+      ...(b.overdue || []).map(t => ({...t, tag: "OVERDUE", cls: "red", detail: (t.daysLate||0) + "d late"})),
+      ...(b.atRisk || []).map(t => ({...t, tag: "AT RISK", cls: "amber", detail: t.reason || ""})),
+    ];
+    $("risk").innerHTML =
+      `<tr><th>Ticket</th><th>Owner</th><th>Due</th><th></th></tr>` +
+      (risk.length ? risk.map(t =>
+        `<tr><td>${esc(t.name)}</td><td>${esc(t.assignee)}</td><td>${esc(t.due)}</td><td><span class="pill ${t.cls}">${t.tag}</span> ${esc(t.detail)}</td></tr>`).join("")
+        : emptyRow(4, "Nothing overdue or at risk."));
+
+    // Upcoming sends
+    $("sends").innerHTML =
+      `<tr><th>Send</th><th>Date</th><th>Audience</th></tr>` +
+      ((b.lookAheadSends || []).length ? b.lookAheadSends.map(s =>
+        `<tr><td>${esc(s.name)} ${s.clash ? '<span class="pill amber">CLASH</span>' : ''}</td><td>${esc(s.sendDate)}</td><td>${esc(s.audience)}</td></tr>`).join("")
+        : emptyRow(3, "No sends scheduled in the look-ahead window."));
+
+    // Data gaps
+    $("gaps").innerHTML = (b.dataGaps || []).length
+      ? "Data gaps: " + b.dataGaps.map(esc).join(" · ") : "";
+  }
+
+  render(typeof BRIEFING === "object" ? BRIEFING : null);
+</script>

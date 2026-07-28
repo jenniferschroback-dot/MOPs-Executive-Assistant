@@ -1,0 +1,1533 @@
+<!--
+  MOPS Command Center — LIVE (self-refreshing) dashboard.
+
+  Uses the `mcp` runtime capability: it calls the VIEWER's own Salesforce + Asana
+  connectors (window.claude.mcp) each refresh and computes the briefing in-browser.
+  ALSO declares `downloads` — the "Save .md file" button in the Email Performance Report
+  card calls window.claude.downloads.save(). BOTH capabilities must be declared on every
+  publish: capabilities is a full-set declaration, so omitting one revokes it. Dropping
+  `downloads` silently breaks the Save button (it falls back to showing raw Markdown).
+  Publish with:
+    capabilities: {
+      mcp: { servers: [
+        { server: "claude_ai_Salesforce", tools: ["soqlQuery"] },
+        { server: "claude_ai_Asana",      tools: ["get_tasks", "get_task_stories", "update_tasks"] },
+        { server: "claude_ai_Atlassian",  tools: ["searchJiraIssuesUsingJql", "getTransitionsForJiraIssue", "transitionJiraIssue"] }
+      ] },
+      downloads: true
+    }
+  NOTE: searchJiraIssuesUsingJql powers the "Intake — Jira channel" section (the MOPS Jira
+  project is a second request front-door alongside Asana). It pages the full open backlog
+  (~409 issues) once per refresh and computes real-vs-noise, orphaned owners, and aging
+  in-browser. getTransitionsForJiraIssue + transitionJiraIssue power the per-row "Close"
+  action (a WRITE): it chains this project's forward-only workflow (To Do → In Progress →
+  In Review → Done) to Done and sets the required resolution (Done / Won't Do / Outdated).
+  Runs as the viewer, behind a confirm step. ONE-WAY: Done is terminal here (no reopen
+  transition exists), so the confirm warns and the action can't be undone from the page.
+  Reads degrade to a connector prompt if Atlassian isn't authorized.
+  NOTE: get_task_stories powers the Triage-speed card. It pulls one activity feed per
+  recently-completed top-level ticket (capped at TRIAGE_CAP, concurrency-limited) on each
+  refresh — the heaviest call in the page. It degrades gracefully: if the tool isn't
+  granted or fails, the triage card shows a note and everything else still renders.
+  Because it declares mcp, this page is PRIVATE to consented viewers and cannot be
+  shared by public link. The Acquia wordmark is inlined as a data URI (__LOGO_DATA_URI__
+  is replaced at build time). CSP blocks web fonts, so headings use a system geometric
+  stack (Montserrat/Proxima Nova if the viewer has them locally).
+-->
+<style>
+  :root {
+    --navy: #232C61; --navy-dark: #141938; --blue: #036BB5; --sky: #26A3DD;
+    --gray: #3D4F5C; --card: #F2F9FC; --iceberg: #D3ECF8; --white: #ffffff;
+    --teal: #66C8CA; --orange: #F47A20; --pink: #E1126E; --yellow: #FEC231;
+    --bg: #eef4f8; --panel: #ffffff; --ink: #232C61; --muted: #5f7180;
+    --line: #dce6ee; --track: #e7eef4;
+    --font: "Montserrat","Proxima Nova", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #10152e; --panel: #1a2247; --ink: #eaf1f8; --muted: #9fb0c4;
+      --line: #2b356b; --track: #222c58; --card: #1e2750; --gray: #c4d2e0; }
+  }
+  :root[data-theme="light"] { --bg:#eef4f8; --panel:#fff; --ink:#232C61; --muted:#5f7180; --line:#dce6ee; --track:#e7eef4; --card:#F2F9FC; --gray:#3D4F5C; }
+  :root[data-theme="dark"]  { --bg:#10152e; --panel:#1a2247; --ink:#eaf1f8; --muted:#9fb0c4; --line:#2b356b; --track:#222c58; --card:#1e2750; --gray:#c4d2e0; }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font); }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 0 20px 60px; }
+
+  /* Header — navy brand bar with droplet motif */
+  header { background: var(--navy); color: #fff; margin: 0 -9999px 24px; padding: 0 9999px; position: relative; overflow: hidden; }
+  .hbar { max-width: 1160px; margin: 0 auto; padding: 22px 20px; display: flex; align-items: center; gap: 18px; position: relative; z-index: 2; }
+  .logo { height: 26px; width: auto; flex: 0 0 auto; }
+  .htitle { font-weight: 800; font-size: 20px; letter-spacing: .2px; }
+  .htitle small { display: block; font-weight: 500; font-size: 12px; color: #bcd3e6; letter-spacing: .3px; margin-top: 2px; }
+  .hspacer { flex: 1; }
+  .fresh { font-size: 12px; color: #bcd3e6; text-align: right; line-height: 1.5; }
+  .fresh b { color: #fff; font-weight: 600; }
+  .btn { font-family: var(--font); font-size: 13px; font-weight: 600; color: #fff; background: var(--sky);
+    border: 0; border-radius: 8px; padding: 8px 14px; cursor: pointer; }
+  .btn:hover { background: #1f8fc4; }
+  .btn:disabled { opacity: .55; cursor: default; }
+  .droplet { position: absolute; top: -20px; right: 40px; z-index: 1; opacity: .28; }
+  .droplet.two { right: 120px; top: 8px; opacity: .16; }
+
+  .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--sky); }
+
+  /* section divider — separates the Asana operations block from the email-performance block */
+  .sectionhead { display: flex; align-items: center; gap: 11px; margin: 34px 0 15px; }
+  .sectionhead:first-of-type { margin-top: 6px; }
+  .sectionhead h2 { font-size: 17px; font-weight: 800; color: var(--ink); margin: 0; letter-spacing: .3px; white-space: nowrap; }
+  .sectionhead .rule { flex: 1; height: 2px; background: linear-gradient(90deg, var(--sky), transparent); border-radius: 2px; }
+  .sectionhead .ssrc { font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; color: var(--blue);
+    background: color-mix(in srgb, var(--sky) 15%, transparent); padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+  .sectionhead .sdrop { width: 13px; height: 17px; flex: 0 0 auto; }
+
+  .alerts { display: grid; gap: 8px; margin-bottom: 22px; }
+  .alert { display: flex; gap: 11px; align-items: flex-start; padding: 11px 14px; border-radius: 10px;
+    font-size: 14px; background: var(--panel); border: 1px solid var(--line); border-left-width: 4px; }
+  .alert .msg { color: var(--ink); }
+  .alert.critical { border-left-color: var(--pink); }
+  .alert.warn { border-left-color: var(--orange); }
+  .alert.info { border-left-color: var(--sky); }
+  .alert .tag { font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;
+    padding: 2px 7px; border-radius: 999px; flex: 0 0 auto; }
+  .alert.critical .tag { background: color-mix(in srgb, var(--pink) 15%, transparent); color: var(--pink); }
+  .alert.warn .tag { background: color-mix(in srgb, var(--orange) 16%, transparent); color: var(--orange); }
+  .alert.info .tag { background: color-mix(in srgb, var(--sky) 16%, transparent); color: var(--blue); }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: 13px; margin-bottom: 22px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 15px 17px; }
+  .tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .7px; font-weight: 700; }
+  .tile .v { font-size: 30px; font-weight: 800; margin-top: 5px; color: var(--ink); line-height: 1.05; }
+  .tile .s { font-size: 12px; color: var(--muted); margin-top: 3px; }
+  .up { color: #1f9e6f; font-weight: 700; } .down { color: var(--orange); font-weight: 700; }
+
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 780px) { .grid2 { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 17px; margin-bottom: 16px; }
+  .card h2 { font-size: 13px; margin: 0 0 4px; font-weight: 800; color: var(--blue); letter-spacing: .2px; }
+  .card .sub { font-size: 12px; color: var(--muted); margin: 0 0 13px; }
+  .card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .card-head h2 { margin-bottom: 0; }
+  .sel { font-family: var(--font); font-size: 12px; font-weight: 600; color: var(--ink); background: var(--panel);
+    border: 1px solid var(--line); border-radius: 8px; padding: 5px 26px 5px 9px; cursor: pointer; appearance: none;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%2326A3DD' stroke-width='1.6'/></svg>");
+    background-repeat: no-repeat; background-position: right 9px center; }
+  .sel:focus { outline: 2px solid var(--sky); }
+  .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; min-width: 560px; }
+  .cal-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted); font-weight: 700; text-align: center; padding-bottom: 2px; }
+  .cal .day { border: 1px solid var(--line); border-radius: 8px; padding: 6px 7px; min-height: 66px; background: var(--card); }
+  .cal .day.today { border-color: var(--sky); box-shadow: inset 0 0 0 1px var(--sky); }
+  .cal .day.weekend { opacity: .6; }
+  .cal .day.past { opacity: .4; }
+  .cal .dh { display: flex; justify-content: space-between; align-items: baseline; }
+  .cal .dh b { font-size: 13px; color: var(--ink); font-weight: 800; }
+  .cal .dh .mo { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; color: var(--sky); }
+  .cal .ev { display: block; font-size: 10px; margin-top: 4px; padding: 2px 5px; border-radius: 5px; line-height: 1.2;
+    background: color-mix(in srgb, var(--sky) 15%, transparent); color: var(--ink); text-decoration: none; }
+  .cal .ev.clash { background: color-mix(in srgb, var(--orange) 20%, transparent); }
+  .assign-sel { font: inherit; font-size: 12px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); cursor: pointer; }
+  .mini { font: inherit; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 6px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; }
+  .mini.ok { background: var(--sky); color: #fff; border-color: var(--sky); }
+  .mini:hover { border-color: var(--sky); }
+  .confirm-q { font-size: 12px; color: var(--ink); }
+  .assigned-ok { font-size: 12px; font-weight: 700; color: #1f9e6f; }
+  .assign-err { font-size: 11px; color: var(--orange); }
+  #toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%) translateY(20px); background: var(--navy); color: #fff; padding: 10px 16px; border-radius: 8px; font-size: 13px; opacity: 0; pointer-events: none; transition: all .25s ease; z-index: 50; box-shadow: 0 6px 20px rgba(0,0,0,.28); }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast.err { background: var(--pink); }
+  .cal a.ev { cursor: pointer; }
+  .cal a.ev:hover { background: color-mix(in srgb, var(--sky) 30%, transparent); text-decoration: underline; }
+  .cal a.ev.clash:hover { background: color-mix(in srgb, var(--orange) 34%, transparent); }
+
+  /* vertical bar chart — magnitude by category (workload, status, aging, triage lag) */
+  /* align columns at the TOP so every fixed-height .plot shares one baseline —
+     bottom-aligning lets taller (wrapped) labels lift their bar off the baseline */
+  .vbars { display: flex; align-items: flex-start; gap: 10px; padding-top: 6px; }
+  .vbars.dense { gap: 6px; }
+  .vbars .col { flex: 1 1 0; min-width: 0; }
+  .vbars .plot { position: relative; height: 128px; }
+  .vbars .plot::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1px; background: var(--line); }
+  .vbars .vb { position: absolute; left: 0; right: 0; bottom: 0; margin: 0 auto; width: 100%; max-width: 46px; min-height: 3px;
+    border-radius: 4px 4px 0 0; background: linear-gradient(180deg, var(--sky), var(--blue)); transition: filter .15s ease; }
+  .vbars .vb.hot { background: linear-gradient(180deg, var(--orange), var(--pink)); }
+  .vbars .col:hover .vb { filter: brightness(1.09); }
+  .vbars .vv { position: absolute; left: 0; right: 0; text-align: center; font-size: 13px; font-weight: 800;
+    color: var(--ink); font-variant-numeric: tabular-nums; line-height: 1; }
+  .vbars .vl { text-align: center; font-size: 10px; color: var(--muted); font-weight: 600; line-height: 1.2;
+    margin-top: 7px; word-break: break-word; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .scroll { overflow-x: auto; }
+  th { text-align: left; color: var(--sky); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .7px;
+    border-bottom: 2px solid var(--line); padding: 7px 8px; white-space: nowrap; }
+  td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; color: var(--ink); font-weight: 500; }
+  td a { color: var(--blue); text-decoration: none; } td a:hover { text-decoration: underline; }
+  .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .pill.pink { background: color-mix(in srgb, var(--pink) 14%, transparent); color: var(--pink); }
+  .pill.orange { background: color-mix(in srgb, var(--orange) 16%, transparent); color: var(--orange); }
+  .empty { color: var(--muted); font-size: 13px; font-style: italic; padding: 4px 2px; }
+  .gaps { color: var(--muted); font-size: 12px; border-top: 1px dashed var(--line); padding-top: 13px; margin-top: 6px; line-height: 1.55; }
+  .gaps b { color: var(--ink); }
+  .secmsg { font-size: 13px; color: var(--gray); background: var(--card); border: 1px dashed var(--line);
+    border-radius: 8px; padding: 10px 12px; }
+  .secmsg a { color: var(--blue); }
+  .pagemsg { max-width: 640px; margin: 40px auto; text-align: center; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 12px; padding: 28px; }
+  .pagemsg h3 { color: var(--navy); margin: 0 0 8px; }
+  .skeleton { color: var(--muted); font-size: 13px; }
+
+  /* Email Performance Report (full-brief generator) */
+  .repwrap .card-head { flex-wrap: wrap; row-gap: 8px; }
+  .gran { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .rep-lead { font-size: 14px; color: var(--ink); background: var(--card); border-left: 3px solid var(--sky);
+    border-radius: 8px; padding: 11px 13px; margin: 4px 0 16px; line-height: 1.5; }
+  .rep-lead b { color: var(--ink); }
+  .rep-h { font-size: 12px; font-weight: 800; letter-spacing: .4px; text-transform: uppercase; color: var(--blue);
+    margin: 20px 0 9px; padding-bottom: 5px; border-bottom: 1px solid var(--line); }
+  .rep-rec { margin: 4px 0 0; padding-left: 20px; font-size: 13px; line-height: 1.6; color: var(--ink); }
+  .rep-rec li { margin-bottom: 6px; }
+  .rep-note { font-size: 12px; color: var(--muted); line-height: 1.55; border-top: 1px dashed var(--line);
+    padding-top: 12px; margin-top: 16px; }
+  .rep-note b { color: var(--ink); }
+  .rep-export { display: flex; gap: 8px; align-items: center; margin-top: 16px; flex-wrap: wrap; }
+  .md-area { width: 100%; min-height: 260px; margin-top: 10px; font-family: ui-monospace, Menlo, Consolas, monospace;
+    font-size: 12px; line-height: 1.5; border: 1px solid var(--line); border-radius: 8px; padding: 11px;
+    background: var(--card); color: var(--ink); white-space: pre; overflow: auto; resize: vertical; }
+  .partial { display: inline-block; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+    padding: 2px 8px; border-radius: 999px; background: color-mix(in srgb, var(--orange) 16%, transparent); color: var(--orange); margin-left: 8px; }
+</style>
+
+<header>
+  <svg class="droplet" width="150" height="195" viewBox="0 0 100 130" aria-hidden="true"><path d="M50 4 C50 4 8 55 8 82 a42 42 0 0 0 84 0 C92 55 50 4 50 4 Z" fill="#26A3DD"/></svg>
+  <svg class="droplet two" width="110" height="143" viewBox="0 0 100 130" aria-hidden="true"><path d="M50 4 C50 4 8 55 8 82 a42 42 0 0 0 84 0 C92 55 50 4 50 4 Z" fill="#26A3DD"/></svg>
+  <div class="hbar">
+    <img class="logo" src="__LOGO_DATA_URI__" alt="Acquia">
+    <div class="htitle">MOPS Command Center<small>Marketing Operations · manager view</small></div>
+    <div class="hspacer"></div>
+    <div class="fresh" id="fresh">Loading…</div>
+    <button class="btn" id="refresh">Refresh</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div id="pagestate"></div>
+  <div id="body" hidden>
+    <div class="alerts" id="alerts"></div>
+
+    <!-- ============ SECTION 1 · Intake & Operations (Asana) ============ -->
+    <div class="sectionhead">
+      <svg class="sdrop" viewBox="0 0 100 130" aria-hidden="true"><path d="M50 4 C50 4 8 55 8 82 a42 42 0 0 0 84 0 C92 55 50 4 50 4 Z" fill="#26A3DD"/></svg>
+      <h2>Intake &amp; Operations</h2><span class="rule"></span><span class="ssrc">Asana</span>
+    </div>
+
+    <div class="tiles" id="tiles"></div>
+
+    <div class="card">
+      <div class="eyebrow">Capacity</div>
+      <h2>Workload — open tasks by person</h2>
+      <div id="workload" class="skeleton">Loading…</div>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Action · assign owners</div>
+      <h2>Unassigned tickets</h2>
+      <p class="sub">Pick an owner to assign it in Asana — runs as you, with a confirm step. Sorted oldest first.</p>
+      <div class="scroll"><table id="unassigned"></table></div>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Triage speed</div>
+      <h2>How fast tickets get an owner</h2>
+      <p class="sub">Time from submit → first assignment, over recently-completed tickets. Self-assignment (created + assigned by the same person) is shown separately so it doesn't flatter the median.</p>
+      <div id="triage" class="skeleton">Loading…</div>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Pipeline of work</div>
+      <h2>Ticket status — open work by stage</h2>
+      <p class="sub">Where the open backlog sits — <b>Waiting for Feedback</b> and <b>Incomplete</b> are highlighted.</p>
+      <div class="grid2">
+        <div id="statusbars"></div>
+        <div class="scroll"><table id="waiting"></table></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Aging</div>
+      <h2>Ticket aging — how long open work has been alive</h2>
+      <p class="sub">Total open age since submission (created date); the 1–3 month and 3 month+ buckets are highlighted.</p>
+      <div class="grid2">
+        <div id="agebuckets"></div>
+        <div class="scroll"><table id="oldest"></table></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Intake</div>
+      <h2>New / unclassified tickets</h2>
+      <p class="sub">Open tasks with no Project Type set — a proxy for "new" until the live intake form exists.</p>
+      <div class="scroll"><table id="newtickets"></table></div>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Risk</div>
+      <h2>Overdue &amp; at-risk</h2>
+      <div class="scroll"><table id="risk"></table></div>
+    </div>
+
+    <!-- ============ SECTION 2 · Intake — Jira channel (Jira / MOPS project) ============ -->
+    <div class="sectionhead">
+      <svg class="sdrop" viewBox="0 0 100 130" aria-hidden="true"><path d="M50 4 C50 4 8 55 8 82 a42 42 0 0 0 84 0 C92 55 50 4 50 4 Z" fill="#26A3DD"/></svg>
+      <h2>Intake &mdash; Jira channel</h2><span class="rule"></span><span class="ssrc">Jira · MOPS</span>
+    </div>
+
+    <div class="alerts" id="jira-alerts"></div>
+    <div class="tiles" id="jira-tiles"><div class="skeleton" style="grid-column:1/-1">Loading Jira intake…</div></div>
+
+    <div class="card">
+      <div class="eyebrow">Backlog composition</div>
+      <h2>Real ops work vs. automated noise</h2>
+      <p class="sub">The MOPS Jira project is a second request front-door (other teams file here, not just Asana). Automated privacy/DSAR subtasks are split out so the real ops backlog is visible. <b>Orphaned</b> = assigned to a deactivated user — it won't move without reassignment. Use <b>Close</b> to resolve a dead ticket — runs as you, with a confirm step; <b>permanent</b> (this workflow has no reopen).</p>
+      <div class="grid2">
+        <div id="jira-split"></div>
+        <div class="scroll"><table id="jira-orphans"></table></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Aging</div>
+      <h2>Oldest open requests (real ops work)</h2>
+      <p class="sub">Age since the request was filed (created date). <b>updated</b> is unreliable in this project — a recent bulk edit reset it across most of the backlog — so aging uses created, and the 1–2 yr / 2 yr+ buckets are highlighted.</p>
+      <div class="grid2">
+        <div id="jira-age"></div>
+        <div class="scroll"><table id="jira-oldest"></table></div>
+      </div>
+    </div>
+
+    <!-- ============ SECTION 3 · Email Performance (Salesforce / Pardot) ============ -->
+    <div class="sectionhead">
+      <svg class="sdrop" viewBox="0 0 100 130" aria-hidden="true"><path d="M50 4 C50 4 8 55 8 82 a42 42 0 0 0 84 0 C92 55 50 4 50 4 Z" fill="#26A3DD"/></svg>
+      <h2>Email Performance</h2><span class="rule"></span><span class="ssrc">Salesforce / Pardot</span>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Email · Salesforce/Pardot</div>
+      <div class="card-head">
+        <h2>Email performance</h2>
+        <select id="email-period" class="sel" aria-label="Email reporting period"></select>
+      </div>
+      <p class="sub" id="w-email">last 30 days vs prior 30</p>
+      <div id="email" class="skeleton">Loading…</div>
+    </div>
+
+    <div class="card repwrap">
+      <div class="eyebrow">Report · Salesforce/Pardot</div>
+      <div class="card-head">
+        <h2>Email performance report — full analysis</h2>
+        <div class="gran">
+          <select id="rep-gran" class="sel" aria-label="Timeline granularity">
+            <option value="quarter">By quarter</option>
+            <option value="month">By month</option>
+            <option value="week">By week</option>
+          </select>
+          <select id="rep-period" class="sel" aria-label="Reporting period"></select>
+          <button class="btn" id="rep-run">Generate report</button>
+        </div>
+      </div>
+      <p class="sub">Generates the full email-performance brief for any <b>quarter, month, or week</b> — core metrics vs. the prior period, what makes the top campaigns win (audience precision, product line, top performers), red flags, and prioritized recommendations. Same structure &amp; format as the written brief, with a one-click Markdown export.</p>
+      <div id="rep-out"><div class="secmsg">Pick a timeline (quarter / month / week) and a period, then <b>Generate report</b>.</div></div>
+    </div>
+
+    <div class="card">
+      <div class="eyebrow">Look-ahead</div>
+      <h2>Upcoming email sends</h2>
+      <p class="sub">next 4 weeks · today outlined, clashes flagged</p>
+      <div class="scroll"><div id="sendcal"></div></div>
+    </div>
+
+    <div class="gaps" id="gaps"></div>
+  </div>
+</div>
+
+<script>
+// ---------- constants ----------
+const PROJECT = "1205660951274722";
+const FIELD = { projectType: "1206591746930193", priority: "1211656326879675", status: "1210850678809573" };
+// MOps team for the Assign action (Asana user GIDs)
+const TEAM = [
+  { name: "Harish Pandey", gid: "1203937989075417" },
+  { name: "Aayushi Sharma", gid: "1212534096012004" },
+  { name: "Felipe Tencio", gid: "1214552680652024" },
+  { name: "Jennifer Schroback", gid: "1214047208203035" },
+  { name: "Forkane Lebdi", gid: "1215719015567131" },
+];
+const OPT = "name,assignee.name,due_on,resource_subtype,completed,created_at,completed_at,parent.gid,custom_fields.gid,custom_fields.display_value,permalink_url";
+// Triage-speed: cap the per-refresh get_task_stories pulls (heaviest calls) and their concurrency.
+const TRIAGE_CAP = 40, TRIAGE_CONC = 6;
+// event-scaffold placeholder names to exclude from real-work metrics (unowned/triage)
+const isScaffold = (nm) => { nm = (nm || "").trim(); return !nm || nm.includes("[Event Name]") || nm.startsWith("[NAME]") || nm.startsWith("[Name]"); };
+// Jira intake channel (MOPS project). Open-backlog JQL; created-ASC so oldest paginates first.
+const JIRA_CLOUD = "e064d7a1-07ac-4eb9-ace5-67fc64ac5826";   // acquia.atlassian.net
+const JIRA_JQL = "project = MOPS AND statusCategory != Done ORDER BY created ASC";
+const JIRA_FIELDS = ["summary", "status", "priority", "assignee", "reporter", "created", "updated", "labels"];
+// "Noise" = the automated privacy/DSAR stream (~120 of 409). One automation account (null email,
+// so match accountId/displayName, not email) plus summary patterns for human-filed privacy tickets.
+const JIRA_NOISE_ACCT = "5e163dff9af3650e9e40a3e4";
+const JIRA_NOISE_RE = /request id:|privacy request|subtask for a privacy request|onetrust|\bdsar\b|privacy policy|right to be forgotten/i;
+const isJiraNoise = (f) => (f.reporter && f.reporter.accountId === JIRA_NOISE_ACCT) || JIRA_NOISE_RE.test(f.summary || "");
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+
+// rate formatter: fraction (<=1) or already-percent (>1); 1 decimal below 10% so sub-1% CTR isn't "0%"
+const pct = (n) => { if (n == null || isNaN(n)) return "—"; const p = n <= 1 ? n * 100 : n; return (p < 10 ? p.toFixed(1) : Math.round(p)) + "%"; };
+const delta = (d) => { if (d == null || d === 0 || isNaN(d)) return ""; const p = Math.abs(d) <= 1 ? Math.abs(d)*100 : Math.abs(d); const v = p < 10 ? p.toFixed(1) : Math.round(p); return `<span class="${d>0?"up":"down"}">${d>0?"▲":"▼"} ${v}pt</span>`; };
+const money = (n) => { if (n == null || isNaN(n)) return "—"; const a = Math.abs(n); if (a >= 1e6) return "$" + (n / 1e6).toFixed(1) + "M"; if (a >= 1e3) return "$" + Math.round(n / 1e3) + "K"; return "$" + Math.round(n); };
+const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const cf = (t, gid) => { const c = (t.custom_fields || []).find(f => f.gid === gid); return c ? c.display_value : null; };
+// on-time: real business-day turnaround (created→completed) vs per-type SLA. Lead-time types (Webinar/Event) excluded.
+const SLA_DAYS = { "SFDC Campaign only (single)": 1, "SFDC Campaigns only (multiple)": 2, "UTM(s) (+ SFDC Campaign)": 2, "Email(s) only | Nurture Sequences": 5, "List Upload": 7, "IT/Integration": 15, "Form Request": 5, "Reporting": 5 };
+function bizDaysBetween(a, b) { if (!(b > a)) return 0; let n = 0; const c = new Date(a); while (c < b) { c.setDate(c.getDate() + 1); const d = c.getDay(); if (d !== 0 && d !== 6) n++; } return n; }
+// weekday clock-hours between two instants (weekends skipped entirely; holidays ignored) — for triage lag
+function bizHoursBetween(a, b) { if (!(b > a)) return 0; let ms = 0; const c = new Date(a); while (c < b) { const nxt = new Date(c); nxt.setHours(0, 0, 0, 0); nxt.setDate(nxt.getDate() + 1); const end = nxt < b ? nxt : b; const d = c.getDay(); if (d !== 0 && d !== 6) ms += (end - c); c.setTime(end.getTime()); } return ms / 3600000; }
+// compact lag label: under a weekday → hours, else weekday-days (24 weekday-hours = 1 d)
+const bizlag = (h) => (h == null ? "—" : (h < 24 ? Math.round(h) + "h" : (h / 24).toFixed(1) + "d"));
+function computeOnTime(completed) {
+  let scored = 0, ontime = 0, cyc = 0, excluded = 0; const byType = {};
+  (completed || []).forEach(t => {
+    const pt = cf(t, FIELD.projectType) || "(no type)"; const sla = SLA_DAYS[pt];
+    if (sla == null || !t.created_at || !t.completed_at) { excluded++; return; }
+    const bd = bizDaysBetween(new Date(t.created_at.slice(0, 10) + "T00:00:00"), new Date(t.completed_at.slice(0, 10) + "T00:00:00"));
+    scored++; if (bd <= sla) ontime++; cyc += bd;
+    const g = byType[pt] || (byType[pt] = { n: 0, ok: 0, bd: 0, sla }); g.n++; if (bd <= sla) g.ok++; g.bd += bd;
+  });
+  return { pct: scored ? Math.round(ontime / scored * 100) : null, avgCycleDays: scored ? +(cyc / scored).toFixed(1) : null,
+    scored, ontime, excluded,
+    byType: Object.entries(byType).map(([type, v]) => ({ type, n: v.n, pct: Math.round(v.ok / v.n * 100), avg: +(v.bd / v.n).toFixed(1), sla: v.sla })).sort((a, z) => z.n - a.n) };
+}
+// Triage speed (assignment lag) from completed top-level tickets + their activity feeds.
+// storiesByGid: { taskGid: [ {created_at, resource_subtype, created_by:{name}} ... ] } (oldest-first).
+// Honesty adjustments: self-assignment (assigner==creator) is reported separately so a near-zero
+// median isn't misread; triagedMedian counts only true triage (assigner != creator).
+function computeTriageSpeed(completedTop, storiesByGid, capHit) {
+  const median = (a) => { if (!a.length) return null; const s = a.slice().sort((x, y) => x - y); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+  const lags = [], triaged = []; let self = 0, never = 0, considered = 0;
+  const dist = { immediate_le1h: 0, within_1bd: 0, d1_3bd: 0, gt3bd: 0 };
+  const assignBy = {};
+  (completedTop || []).forEach(t => {
+    const st = storiesByGid[t.gid]; if (!st || !st.length) return;
+    considered++;
+    const created = t.created_at ? new Date(t.created_at) : (st[0].created_at ? new Date(st[0].created_at) : null);
+    const creator = st[0] && st[0].created_by ? st[0].created_by.name : null;
+    const fa = st.find(s => s.resource_subtype === "assigned");
+    if (!fa) { never++; return; }
+    const assigner = fa.created_by ? fa.created_by.name : null;
+    if (assigner) assignBy[assigner] = (assignBy[assigner] || 0) + 1;
+    if (!created) return;
+    const h = bizHoursBetween(created, new Date(fa.created_at));
+    lags.push(h);
+    if (h <= 1) dist.immediate_le1h++; else if (h <= 24) dist.within_1bd++; else if (h <= 72) dist.d1_3bd++; else dist.gt3bd++;
+    if (creator && assigner && creator === assigner) self++;
+    else if (creator && assigner && creator !== assigner) triaged.push(h);
+  });
+  return {
+    scored: lags.length, considered,
+    medianLagBizHours: median(lags), triagedMedianBizHours: median(triaged),
+    selfAssignedSharePct: lags.length ? Math.round(self / lags.length * 100) : null,
+    neverAssignedCount: never, lagDistribution: dist,
+    assignmentsByPerson: Object.entries(assignBy).map(([name, count]) => ({ name, count })).sort((a, z) => z.count - a.count),
+    capHit: !!capHit
+  };
+}
+// email perf from current/prior aggregates {count,delivered,opens,clicks}
+const perfFromAggs = (cur, prior, oppAgg) => {
+  const rate = (n, d) => (d > 0 ? n / d : null);
+  const cO = rate(cur.opens, cur.delivered), pO = rate(prior.opens, prior.delivered);
+  const cC = rate(cur.clicks, cur.delivered), pC = rate(prior.clicks, prior.delivered);
+  // opp/pipeline metrics come from TRUE primary-source opps (aggOpps), NOT the campaign influence rollup
+  const o = oppAgg || { opps: 0, pipeline: 0, won: 0, byCampaign: {} };
+  return { sends: cur.count, openRate: cO, ctr: cC,
+    openRateDelta: (cO != null && pO != null) ? cO - pO : null,
+    ctrDelta: (cC != null && pC != null) ? cC - pC : null,
+    // pipeline-influenced $ — primary-source only: opps whose PRIMARY campaign source is an in-window email campaign
+    pipeline: o.pipeline || 0, opps: o.opps || 0, won: o.won || 0, oppRows: o.byCampaign || {}, responses: cur.responses || 0,
+    pipelinePer1k: cur.delivered > 0 ? o.pipeline / (cur.delivered / 1000) : null,
+    oppRate: cur.responses > 0 ? o.opps / cur.responses : null };
+};
+// engagement + pipeline tiles, a top-emails-by-pipeline table, and the attribution footnote
+function emailTiles(e, rows) {
+  const eng = `<div class="tiles" style="margin:0">
+    <div class="tile"><div class="k">Open rate</div><div class="v">${pct(e.openRate)}</div><div class="s">${delta(e.openRateDelta)}</div></div>
+    <div class="tile"><div class="k">CTR</div><div class="v">${pct(e.ctr)}</div><div class="s">${delta(e.ctrDelta)}</div></div>
+    <div class="tile"><div class="k">Sends</div><div class="v">${e.sends ?? "—"}</div><div class="s">campaigns</div></div></div>`;
+  const pipe = `<div class="tiles" style="margin:11px 0 0">
+    <div class="tile"><div class="k">Pipeline influenced</div><div class="v">${money(e.pipeline)}</div><div class="s">${e.opps || 0} opps · ${e.won || 0} won</div></div>
+    <div class="tile"><div class="k">$ per 1k sent</div><div class="v">${money(e.pipelinePer1k)}</div><div class="s">size-normalized</div></div>
+    <div class="tile"><div class="k">Responses</div><div class="v">${(e.responses || 0).toLocaleString()}</div><div class="s">${e.oppRate != null ? Math.round(e.oppRate * 100) + "% became opps" : ""}</div></div></div>`;
+  // top emails by ENGAGEMENT (open rate) — always populated; guards tiny audiences so a 2-send email can't top it
+  const MIN_AUD = 200;
+  const engRows = (rows || []).map(r => { const d = N(r.TotalEmailsDelivered); return { name: r.Name, sent: d, open: d > 0 ? N(r.UniqueEmailOpens) / d : 0, ctr: d > 0 ? N(r.UniqueEmailTrackedLinkClicks) / d : 0 }; })
+    .filter(r => r.sent >= MIN_AUD).sort((a, b) => b.open - a.open).slice(0, 5);
+  const engTable = engRows.length ? `<div class="scroll" style="margin-top:12px"><table><tr><th>Top emails by open rate</th><th>Sent</th><th>Open</th><th>CTR</th></tr>` +
+    engRows.map(r => `<tr><td>${esc(r.name && r.name.length > 42 ? r.name.slice(0, 40) + "…" : (r.name || ""))}</td><td>${r.sent.toLocaleString()}</td><td>${pct(r.open)}</td><td>${pct(r.ctr)}</td></tr>`).join("") + `</table></div>` +
+    `<p class="sub" style="margin-top:6px">Ranked by unique open rate; excludes sends under ${MIN_AUD} delivered so a tiny audience can't skew the top.</p>` : "";
+  // top campaigns by primary-source pipeline (from aggOpps' per-campaign map); join delivered by CampaignId
+  const deliveredById = {};
+  (rows || []).forEach(r => { if (r.Id) deliveredById[r.Id] = N(r.TotalEmailsDelivered); });
+  const groups = Object.entries(e.oppRows || {}).map(([cid, g]) => ({ ...g, delivered: deliveredById[cid] })).sort((a, b) => b.pipeline - a.pipeline).slice(0, 5);
+  const table = groups.length ? `<div class="scroll" style="margin-top:12px"><table><tr><th>Top campaigns by primary-source pipeline</th><th>Sent</th><th>Opps</th><th>Won</th><th>Pipeline</th></tr>` +
+    groups.map(g => `<tr><td>${esc(g.name && g.name.length > 42 ? g.name.slice(0, 40) + "…" : (g.name || ""))}</td><td>${g.delivered != null ? g.delivered.toLocaleString() : "—"}</td><td>${g.opps}</td><td>${g.won}</td><td>${money(g.pipeline)}</td></tr>`).join("") + `</table></div>` : `<p class="sub" style="margin-top:12px">No primary-source opportunities attached in this window yet (deals lag the send — check a completed quarter).</p>`;
+  const note = `<p class="sub" style="margin-top:10px"><b>Primary-source only:</b> counts opportunities whose <b>primary campaign source</b> is an in-window email campaign (single-touch) — not influence/association, which double-counts. Amount = sum of opportunity Amount (open + won; can be null/negative in SFDC); pipeline lags the send, so recent/in-progress periods understate.</p>`;
+  return eng + pipe + engTable + table + note;
+}
+// a multi-week, weekday-aligned calendar of email sends, from lookAheadSends[{name,sendDate,clash}]
+const WD = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function sendCalendar(sends, weeks) {
+  weeks = weeks || 4;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const start = addDays(today, -today.getDay());          // Sunday of the current week
+  const totalDays = weeks * 7;
+  const gridEndKey = ymd(addDays(start, totalDays - 1));
+  const todayKey = ymd(today);
+  const byDate = {};
+  (sends || []).forEach(s => { (byDate[s.sendDate] = byDate[s.sendDate] || []).push(s); });
+  let html = WD.map(w => `<div class="cal-lbl">${w}</div>`).join("");
+  for (let i = 0; i < totalDays; i++) {
+    const d = addDays(start, i), key = ymd(d), evs = byDate[key] || [];
+    const cls = (key === todayKey ? " today" : "") + (d.getDay() === 0 || d.getDay() === 6 ? " weekend" : "") + (key < todayKey ? " past" : "");
+    const showMo = d.getDate() === 1 || i === 0;
+    html += `<div class="day${cls}"><div class="dh"><b>${d.getDate()}</b>${showMo ? `<span class="mo">${MONTHS[d.getMonth()]}</span>` : ""}</div>` +
+      evs.map(e => {
+        const nm = e.name.length > 28 ? e.name.slice(0, 26) + "…" : e.name;
+        const inner = `${esc(nm)}${e.clash ? " ⚠" : ""}`;
+        const cl = `ev${e.clash ? " clash" : ""}`;
+        return e.url
+          ? `<a class="${cl}" href="${esc(e.url)}" target="_blank" rel="noopener" title="Open in Asana: ${esc(e.name)}">${inner}</a>`
+          : `<div class="${cl}" title="${esc(e.name)}">${inner}</div>`;
+      }).join("") + `</div>`;
+  }
+  const later = (sends || []).filter(s => s.sendDate > gridEndKey);
+  const laterNote = later.length ? `<p class="sub" style="margin-top:10px">Beyond this view: ${later.map(s => { const nm = esc(s.name.length > 30 ? s.name.slice(0, 28) + "…" : s.name); return (s.url ? `<a href="${esc(s.url)}" target="_blank" rel="noopener">${nm}</a>` : nm) + " (" + esc(s.sendDate) + ")"; }).join(" · ")}</p>` : "";
+  return `<div class="cal">${html}</div>${laterNote}`;
+}
+const emptyRow = (cols, msg) => `<tr><td colspan="${cols}" class="empty">${msg}</td></tr>`;
+
+// Vertical bar chart for magnitude-by-category. items: [{label, value, hot, title?}].
+// One hue (sky→blue), a warning accent for flagged categories; baseline-anchored, direct value labels, hover.
+// H = plot height; PAD leaves headroom so the value label above the tallest bar isn't clipped.
+function barChart(items, opts) {
+  const list = (items || []).filter(Boolean);
+  if (!list.length) return `<div class="empty">${(opts && opts.empty) || "No data."}</div>`;
+  const H = 128, PAD = 20;
+  const max = Math.max(1, ...list.map(i => i.value || 0));
+  const cols = list.map(i => {
+    const v = i.value || 0;
+    const barPx = Math.max(3, Math.round(v / max * (H - PAD)));
+    const title = esc(i.title || i.label) + ": " + v;
+    return `<div class="col" title="${title}"><div class="plot">` +
+      `<span class="vv" style="bottom:${barPx + 5}px">${v}</span>` +
+      `<div class="vb ${i.hot ? "hot" : ""}" style="height:${barPx}px"></div>` +
+      `</div><div class="vl">${esc(i.label)}</div></div>`;
+  }).join("");
+  return `<div class="vbars${list.length > 5 ? " dense" : ""}">${cols}</div>`;
+}
+// shorten a person's full name to "First L." for compact axis labels (keeps "Unassigned" etc. intact)
+const shortName = (n) => { const p = String(n || "").trim().split(/\s+/); return p.length > 1 ? `${p[0]} ${p[p.length - 1][0]}.` : (p[0] || ""); };
+
+// ---------- pure compute (unit-tested in node) ----------
+function computeBriefing(incomplete, completed, curAgg, priAgg, curRows, now, oppAgg) {
+  const onTime = computeOnTime(completed);
+  const todayStr = ymd(now), plus3 = ymd(addDays(now, 3)), lookEnd = ymd(addDays(now, 35));
+  const asnName = (t) => (t.assignee && t.assignee.name) ? t.assignee.name : "Unassigned";
+
+  const workMap = {};
+  incomplete.forEach(t => { const n = asnName(t); workMap[n] = (workMap[n] || 0) + 1; });
+  const workloadByPerson = Object.entries(workMap).map(([name, openTasks]) => ({ name, openTasks })).sort((a, z) => z.openTasks - a.openTasks);
+
+  const newTickets = incomplete.filter(t => !cf(t, FIELD.projectType) && (t.name || "").trim()).map(t => ({ name: t.name, url: t.permalink_url }));
+  const unassignedTickets = incomplete.filter(t => !(t.assignee && t.assignee.name)).map(t => ({
+    name: t.name, gid: t.gid, projectType: cf(t, FIELD.projectType) || "—",
+    ageDays: t.created_at ? Math.floor((now - new Date(t.created_at)) / 86400000) : null, url: t.permalink_url
+  })).sort((a, z) => (z.ageDays || 0) - (a.ageDays || 0));
+  const overdue = incomplete.filter(t => t.due_on && t.due_on < todayStr)
+    .map(t => ({ name: t.name, assignee: asnName(t), due: t.due_on, url: t.permalink_url,
+      daysLate: Math.round((now - new Date(t.due_on + "T00:00:00")) / 86400000) }))
+    .sort((a, z) => z.daysLate - a.daysLate);
+  const atRisk = incomplete.filter(t => t.due_on && t.due_on >= todayStr && t.due_on <= plus3 && (cf(t, FIELD.status) || "") !== "In Progress")
+    .map(t => ({ name: t.name, assignee: asnName(t), due: t.due_on, url: t.permalink_url,
+      reason: `due ${t.due_on}, status ${cf(t, FIELD.status) || "unset"}` }));
+  const nullPriorityCount = incomplete.filter(t => !cf(t, FIELD.priority)).length;
+  const unclassifiedCount = incomplete.filter(t => !cf(t, FIELD.projectType)).length;
+  const blocked = incomplete.filter(t => (cf(t, FIELD.status) || "") === "Blocked").map(t => ({ name: t.name, assignee: asnName(t) }));
+  const urgentUnassigned = incomplete.filter(t => { const p = cf(t, FIELD.priority) || ""; return (p.startsWith("Urgent") || p.startsWith("Critical")) && !(t.assignee && t.assignee.name); })
+    .map(t => ({ name: t.name, priority: cf(t, FIELD.priority) }));
+
+  const mile = incomplete.filter(t => t.resource_subtype === "milestone" && t.due_on && t.due_on >= todayStr && t.due_on <= lookEnd);
+  const dateCounts = {}; mile.forEach(t => dateCounts[t.due_on] = (dateCounts[t.due_on] || 0) + 1);
+  const lookAheadSends = mile.map(t => ({ name: t.name, sendDate: t.due_on, clash: dateCounts[t.due_on] > 1, url: t.permalink_url })).sort((a, z) => a.sendDate.localeCompare(z.sendDate));
+
+  const emailPerf = perfFromAggs(curAgg, priAgg, oppAgg);
+
+  const clashDates = Object.entries(dateCounts).filter(([, n]) => n > 1).map(([d]) => d);
+  const alerts = [];
+  const unassigned = workMap["Unassigned"] || 0;
+  if (unassigned > 0) alerts.push({ type: "unassigned", severity: unassigned >= incomplete.length * 0.3 ? "critical" : "warn",
+    message: `${unassigned} of ${incomplete.length} open tickets have no owner.` });
+  if (overdue.length) alerts.push({ type: "overdue", severity: "warn",
+    message: `${overdue.length} open tickets are past due${overdue.length ? ` (up to ${overdue[0].daysLate} days late)` : ""}.` });
+  if (nullPriorityCount) alerts.push({ type: "null-priority", severity: nullPriorityCount >= incomplete.length * 0.5 ? "warn" : "info",
+    message: `${nullPriorityCount} of ${incomplete.length} open tickets have no Priority set.` });
+  if (urgentUnassigned.length) alerts.push({ type: "urgent-unassigned", severity: "critical",
+    message: `${urgentUnassigned.length} urgent/critical ticket(s) have no owner.` });
+  // stale-unowned: real (non-scaffold) unassigned tickets past their Project Type SLA with still no owner
+  const staleUnowned = unassignedTickets.filter(t => !isScaffold(t.name) && SLA_DAYS[t.projectType] != null && t.ageDays != null && t.ageDays > SLA_DAYS[t.projectType]);
+  if (staleUnowned.length) {
+    const worst = staleUnowned.slice().sort((a, z) => z.ageDays - a.ageDays)[0];
+    const crit = staleUnowned.some(t => t.ageDays > 2 * SLA_DAYS[t.projectType]);
+    alerts.push({ type: "stale-unowned", severity: crit ? "critical" : "warn",
+      message: `${staleUnowned.length} unowned ticket(s) past SLA with no owner — oldest "${worst.name}" waiting ${worst.ageDays}d.` });
+  }
+  if (clashDates.length) alerts.push({ type: "send-clash", severity: "warn",
+    message: `Send-date clash: ${clashDates.map(d => `${d} (${dateCounts[d]} sends)`).join(", ")} — verify audiences don't overlap.` });
+  if (unclassifiedCount) alerts.push({ type: "unclassified", severity: "info", message: `${unclassifiedCount} open tickets have no Project Type set (unclassified).` });
+  if (emailPerf.openRateDelta != null && emailPerf.openRateDelta < 0) alerts.push({ type: "email-decline", severity: "info",
+    message: `Email open rate ${pct(emailPerf.openRate)} (down from ${pct(emailPerf.openRate - emailPerf.openRateDelta)}) vs the prior period.` });
+  if (onTime.pct != null && onTime.pct < 80) alerts.push({ type: "on-time-below-target", severity: onTime.pct < 50 ? "warn" : "info",
+    message: `On-time ${onTime.pct}% (${onTime.ontime}/${onTime.scored} within SLA, avg ${onTime.avgCycleDays} business days) — below the 80% target.` });
+
+  // status breakdown across open work; focus on "Waiting for Feedback" and "Incomplete"
+  const statusMap = {};
+  incomplete.forEach(t => { const s = cf(t, FIELD.status) || "(no status)"; statusMap[s] = (statusMap[s] || 0) + 1; });
+  const statusBreakdown = Object.entries(statusMap).map(([status, count]) => ({ status, count })).sort((a, z) => z.count - a.count);
+  const waitingFeedback = incomplete.filter(t => (cf(t, FIELD.status) || "") === "Waiting for Feedback")
+    .map(t => ({ name: t.name, assignee: asnName(t), due: t.due_on, url: t.permalink_url }));
+  const incompleteStatusCount = statusMap["Incomplete"] || 0;
+
+  // ticket aging — total open age (created_at → now); older buckets flag stale backlog
+  const ageDays = (t) => t.created_at ? Math.floor((now - new Date(t.created_at)) / 86400000) : null;
+  const aBuckets = [{ label: "< 1 week", count: 0 }, { label: "1–2 weeks", count: 0 }, { label: "2–4 weeks", count: 0 }, { label: "1–3 months", count: 0 }, { label: "3 months+", count: 0 }];
+  const oldest = [];
+  incomplete.forEach(t => {
+    const a = ageDays(t); if (a == null) return;
+    aBuckets[a < 7 ? 0 : a < 14 ? 1 : a < 30 ? 2 : a < 90 ? 3 : 4].count++;
+    oldest.push({ name: t.name, assignee: asnName(t), ageDays: a, status: cf(t, FIELD.status) || "—", url: t.permalink_url });
+  });
+  oldest.sort((x, z) => z.ageDays - x.ageDays);
+  const aging = { buckets: aBuckets, oldest: oldest.slice(0, 12), medianAge: oldest.length ? oldest[Math.floor(oldest.length / 2)].ageDays : null };
+
+  return {
+    incompleteTotal: incomplete.length, newTickets, unassigned: unassignedTickets, overdue, atRisk, workloadByPerson,
+    nullPriorityCount, unclassifiedCount, blocked, urgentUnassigned, lookAheadSends, emailPerf, emailRows: curRows || [],
+    statusBreakdown, waitingFeedback, waitingFeedbackCount: waitingFeedback.length, incompleteStatusCount, aging,
+    onTimePct: onTime.pct, avgCycleDays: onTime.avgCycleDays, onTime, alerts,
+    dataGaps: [
+      "<b>On-time %</b> = business-day turnaround (created→completed) vs the official per-type SLA, over the last 30 days; webinars/events (lead-time before the event, not turnaround) and no-SLA types are excluded; the 5-day single-email SLA is also applied to multi-send requests (true SLA 8 days); created_at is the submission proxy; holidays ignored.",
+      "<b>New tickets</b> = open tasks with Project Type unset — a proxy for unclassified, not a true intake feed until the live form exists.",
+      "<b>Email</b> open/CTR are delivered-basis from the Salesforce/Pardot rollup; NumberSent isn't synced and CampaignMember is responder-biased.",
+      "<b>Opps/pipeline</b> are primary-source only — opportunities whose primary campaign source is an in-window email campaign (single-touch). Excludes influence/association (which double-counts) and lags the send, so recent periods read low.",
+      "<b>Look-ahead sends</b> reflect only top-level Email milestones; sends stored as subtasks aren't captured.",
+      "<b>Ticket age</b> = calendar days since created_at (the submission proxy); it's total open age, not time in the current status (that would need Asana status-change history)."
+    ]
+  };
+}
+
+// ---------- Jira intake compute ----------
+// One pass over the open MOPS backlog → real-vs-noise split, orphaned (inactive-assignee) list,
+// created-age buckets + oldest, and an orphaned-real alert. `updated` is deliberately NOT used for
+// staleness (a bulk edit reset it project-wide); age is created→now.
+function computeJira(nodes, now) {
+  const rows = (nodes || []).map(n => {
+    const f = n.fields || {}; const asg = f.assignee || null;
+    const created = f.created ? new Date(f.created) : null;
+    return {
+      key: n.key, url: n.webUrl, summary: f.summary || "",
+      assignee: asg ? asg.displayName : null, assigneeInactive: !!(asg && asg.active === false), unassigned: !asg,
+      priority: (f.priority && f.priority.name) || "—", status: (f.status && f.status.name) || "—",
+      ageDays: created ? Math.floor((now - created) / 86400000) : null,
+      noise: isJiraNoise(f)
+    };
+  });
+  const real = rows.filter(r => !r.noise);
+  const noise = rows.filter(r => r.noise);
+  const orphanedReal = real.filter(r => r.assigneeInactive).sort((a, z) => (z.ageDays || 0) - (a.ageDays || 0));
+  const orphanedAll = rows.filter(r => r.assigneeInactive);
+  const unassignedReal = real.filter(r => r.unassigned);
+  const bkDef = [["< 3 mo", 0, 90], ["3–6 mo", 90, 180], ["6–12 mo", 180, 365], ["1–2 yr", 365, 730], ["2 yr+", 730, 1e9]];
+  const ageBuckets = bkDef.map(([label, lo, hi]) => ({ label, count: real.filter(r => r.ageDays != null && r.ageDays >= lo && r.ageDays < hi).length, hot: lo >= 365 }));
+  const oldestReal = real.filter(r => r.ageDays != null).sort((a, z) => z.ageDays - a.ageDays).slice(0, 12);
+  const alerts = [];
+  if (orphanedReal.length) {
+    const w = orphanedReal[0]; const nm = w.summary.length > 58 ? w.summary.slice(0, 56) + "…" : w.summary;
+    alerts.push({ type: "jira-orphaned", severity: orphanedReal.length >= 20 ? "critical" : "warn",
+      message: `${orphanedReal.length} real Jira ticket(s) are assigned to deactivated users — they can't move without reassignment. Oldest: ${w.key} "${nm}" (${w.ageDays}d old).` });
+  }
+  return { total: rows.length, realCount: real.length, noiseCount: noise.length,
+    unassignedRealCount: unassignedReal.length, orphanedRealCount: orphanedReal.length, orphanedAllCount: orphanedAll.length,
+    split: [{ label: "Real ops", value: real.length }, { label: "Privacy/DSAR", value: noise.length, hot: true }],
+    orphanedReal, ageBuckets, oldestReal, alerts };
+}
+
+// ---------- render ----------
+function render(b) {
+  const alerts = (b.alerts || []).slice().sort((a, z) => ({ critical:0, warn:1, info:2 }[a.severity] ?? 3) - ({ critical:0, warn:1, info:2 }[z.severity] ?? 3));
+  $("alerts").innerHTML = alerts.map(a => `<div class="alert ${esc(a.severity)}"><span class="tag">${esc(a.severity)}</span><span class="msg">${esc(a.message)}</span></div>`).join("");
+
+  const unassigned = (b.urgentUnassigned || []).length;
+  const tiles = [
+    { k: "Open tickets", v: b.incompleteTotal, s: "in the intake backlog" },
+    { k: "New / unclassified", v: (b.newTickets || []).length, s: "no Project Type" },
+    { k: "Overdue", v: (b.overdue || []).length, s: (b.atRisk || []).length + " at-risk this week" },
+    { k: "On-time", v: pct(b.onTimePct), s: b.onTime && b.onTime.scored ? `${b.onTime.ontime}/${b.onTime.scored} in SLA · ${b.avgCycleDays ?? "—"}bd avg` : "no scored completions" },
+    { k: "Awaiting feedback", v: b.waitingFeedbackCount ?? 0, s: 'status "Waiting for Feedback"' },
+    { k: "No priority set", v: b.nullPriorityCount, s: "of " + b.incompleteTotal + " open" },
+  ];
+  $("tiles").innerHTML = tiles.map(t => `<div class="tile"><div class="k">${t.k}</div><div class="v">${t.v}</div><div class="s">${esc(t.s)}</div></div>`).join("");
+
+  const wl = (b.workloadByPerson || []).slice().sort((a, z) => z.openTasks - a.openTasks);
+  $("workload").className = "";
+  $("workload").innerHTML = barChart(
+    wl.map(p => ({ label: shortName(p.name), title: p.name, value: p.openTasks, hot: p.name === "Unassigned" })),
+    { empty: "No workload data." });
+
+  const e = b.emailPerf || {};
+  $("email").className = "";
+  $("email").innerHTML = emailTiles(e, b.emailRows);
+
+  const link = (name, url) => url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(name)}</a>` : esc(name);
+  $("newtickets").innerHTML = `<tr><th>Ticket</th></tr>` + ((b.newTickets || []).length ? b.newTickets.slice(0, 15).map(t => `<tr><td>${link(t.name, t.url)}</td></tr>`).join("") : emptyRow(1, "No unclassified tickets."));
+
+  const risk = [
+    ...(b.overdue || []).map(t => ({ ...t, tag: "OVERDUE", cls: "pink", detail: t.daysLate + "d late" })),
+    ...(b.atRisk || []).map(t => ({ ...t, tag: "AT RISK", cls: "orange", detail: t.reason })),
+  ];
+  $("risk").innerHTML = `<tr><th>Ticket</th><th>Owner</th><th>Due</th><th></th></tr>` +
+    (risk.length ? risk.slice(0, 20).map(t => `<tr><td>${link(t.name, t.url)}</td><td>${esc(t.assignee)}</td><td>${esc(t.due)}</td><td><span class="pill ${t.cls}">${t.tag}</span> ${esc(t.detail)}</td></tr>`).join("") : emptyRow(4, "Nothing overdue or at risk."));
+
+  $("sendcal").innerHTML = sendCalendar(b.lookAheadSends);
+
+  // ticket status by stage — focus on "Waiting for Feedback" and "Incomplete"
+  const sb = (b.statusBreakdown || []).slice();
+  const focus = { "Waiting for Feedback": 1, "Incomplete": 1 };
+  $("statusbars").innerHTML = barChart(
+    sb.map(x => ({ label: x.status, value: x.count, hot: !!focus[x.status] })),
+    { empty: "No status data." });
+  const wf = b.waitingFeedback || [];
+  $("waiting").innerHTML = `<tr><th>Awaiting feedback · ${wf.length}</th><th>Owner</th></tr>` +
+    (wf.length ? wf.slice(0, 15).map(t => `<tr><td>${link(t.name, t.url)}</td><td>${esc(t.assignee)}</td></tr>`).join("") : emptyRow(2, "Nothing awaiting feedback."));
+
+  // ticket aging — buckets + oldest open
+  const ab = (b.aging && b.aging.buckets) || [];
+  $("agebuckets").innerHTML = barChart(
+    ab.map(x => ({ label: x.label, value: x.count, hot: x.label === "1–3 months" || x.label === "3 months+" })),
+    { empty: "No aging data." });
+  const oldest = (b.aging && b.aging.oldest) || [];
+  $("oldest").innerHTML = `<tr><th>Oldest open ticket</th><th>Owner</th><th>Status</th><th>Age</th></tr>` +
+    (oldest.length ? oldest.map(t => `<tr><td>${link(t.name, t.url)}</td><td>${esc(t.assignee)}</td><td>${esc(t.status)}</td><td>${t.ageDays}d</td></tr>`).join("") : emptyRow(4, "No open tickets."));
+
+  // unassigned tickets — with the Assign action control
+  const un = b.unassigned || [];
+  $("unassigned").innerHTML = `<tr><th>Ticket</th><th>Type</th><th>Age</th><th>Assign to</th></tr>` +
+    (un.length ? un.slice(0, 20).map(t => `<tr><td>${link(t.name, t.url)}</td><td>${esc(t.projectType)}</td><td>${t.ageDays != null ? t.ageDays + "d" : "—"}</td><td class="assign-cell" data-gid="${esc(t.gid)}">${assignControl(t.gid)}</td></tr>`).join("") + (un.length > 20 ? `<tr><td colspan="4" class="empty">+ ${un.length - 20} more unassigned</td></tr>` : "") : emptyRow(4, "Nothing unassigned 🎉"));
+
+  renderTriage(b.triageSpeed);
+
+  $("gaps").innerHTML = "<b>Notes.</b> " + (b.dataGaps || []).join(" &nbsp;·&nbsp; ");
+}
+
+// Triage-speed card. Accepts "loading" (async in flight), null (unavailable), or a triageSpeed object.
+function renderTriage(ts) {
+  const el = $("triage"); if (!el) return;
+  if (ts === "loading") { el.className = "skeleton"; el.textContent = "Reading activity history…"; return; }
+  el.className = "";
+  if (!ts) { el.innerHTML = `<div class="secmsg">Triage lag needs Asana activity history (<code>get_task_stories</code>) — unavailable here. The unowned watchlist above still applies.</div>`; return; }
+  if (!ts.scored) { el.innerHTML = `<div class="empty">No completed top-level tickets with activity history in this window.</div>`; return; }
+  const d = ts.lagDistribution || {};
+  const rows = [["Immediate (≤1h)", d.immediate_le1h], ["Within ~1 business day", d.within_1bd], ["1–3 business days", d.d1_3bd], [">3 business days", d.gt3bd]];
+  const bars = barChart(rows.map(r => ({ label: r[0], value: r[1] || 0, hot: r[0].indexOf(">") === 0 })));
+  const owners = ts.assignmentsByPerson || [];
+  const ownersHtml = owners.length ? owners.map(o => `${esc(o.name)} ${o.count}`).join(" · ") : "—";
+  el.innerHTML = `
+    <div class="tiles" style="margin:0 0 12px">
+      <div class="tile"><div class="k">Median to owner</div><div class="v">${bizlag(ts.triagedMedianBizHours)}</div><div class="s">true-triage (assigner ≠ creator)</div></div>
+      <div class="tile"><div class="k">Self-assigned</div><div class="v">${ts.selfAssignedSharePct != null ? ts.selfAssignedSharePct + "%" : "—"}</div><div class="s">assigned at creation</div></div>
+      <div class="tile"><div class="k">Never assigned</div><div class="v">${ts.neverAssignedCount ?? "—"}</div><div class="s">completed w/o owner</div></div>
+    </div>
+    <p class="sub" style="margin:0 0 6px">Time from submit → first owner · ${ts.scored} ticket(s)${ts.capHit ? ` (capped at ${TRIAGE_CAP} most recent)` : ""}</p>
+    ${bars}
+    <p class="sub" style="margin-top:10px">Who assigns: ${ownersHtml}</p>`;
+}
+
+// Jira intake section — tiles, orphaned alert, real-vs-noise split, orphaned-real + oldest tables.
+function renderJira(j) {
+  const link = (name, url) => url ? `<a href="${esc(url)}" target="_blank" rel="noopener">${esc(name)}</a>` : esc(name);
+  const trim = (s) => (s && s.length > 50 ? s.slice(0, 48) + "…" : (s || ""));
+  const al = $("jira-alerts"); if (al) al.innerHTML = (j.alerts || []).map(a => `<div class="alert ${esc(a.severity)}"><span class="tag">${esc(a.severity)}</span><span class="msg">${esc(a.message)}</span></div>`).join("");
+  const tiles = [
+    { k: "Open (Jira)", v: j.total, s: "MOPS project backlog" },
+    { k: "Real ops work", v: j.realCount, s: "excludes privacy/DSAR" },
+    { k: "Privacy/DSAR noise", v: j.noiseCount, s: "automated subtasks" },
+    { k: "Unassigned (real)", v: j.unassignedRealCount, s: "no owner" },
+    { k: "Orphaned (real)", v: j.orphanedRealCount, s: "assignee deactivated" },
+  ];
+  const t = $("jira-tiles"); if (t) t.innerHTML = tiles.map(x => `<div class="tile"><div class="k">${esc(x.k)}</div><div class="v">${x.v}</div><div class="s">${esc(x.s)}</div></div>`).join("");
+  const sp = $("jira-split"); if (sp) sp.innerHTML = barChart(j.split, { empty: "No Jira data." });
+  const ot = $("jira-orphans");
+  if (ot) ot.innerHTML = `<tr><th>Orphaned ticket · ${j.orphanedRealCount}</th><th>Assignee</th><th>Priority</th><th>Age</th><th>Action</th></tr>` +
+    (j.orphanedReal.length ? j.orphanedReal.slice(0, 20).map(r => `<tr><td>${link(r.key, r.url)} ${esc(trim(r.summary))}</td><td>${esc(r.assignee || "—")} <span class="pill pink">inactive</span></td><td>${esc(r.priority)}</td><td>${r.ageDays != null ? r.ageDays + "d" : "—"}</td><td class="jclose-cell" data-key="${esc(r.key)}">${jcloseBtn()}</td></tr>`).join("") +
+      (j.orphanedReal.length > 20 ? `<tr><td colspan="5" class="empty">+ ${j.orphanedReal.length - 20} more orphaned</td></tr>` : "") : emptyRow(5, "No orphaned real tickets 🎉"));
+  const ag = $("jira-age"); if (ag) ag.innerHTML = barChart(j.ageBuckets.map(b => ({ label: b.label, value: b.count, hot: b.hot })), { empty: "No aging data." });
+  const ol = $("jira-oldest");
+  if (ol) ol.innerHTML = `<tr><th>Oldest open (real)</th><th>Owner</th><th>Priority</th><th>Age</th><th>Action</th></tr>` +
+    (j.oldestReal.length ? j.oldestReal.map(r => `<tr><td>${link(r.key, r.url)} ${esc(trim(r.summary))}</td><td>${esc(r.assignee || "Unassigned")}${r.assigneeInactive ? ' <span class="pill pink">inactive</span>' : ""}</td><td>${esc(r.priority)}</td><td>${r.ageDays != null ? r.ageDays + "d" : "—"}</td><td class="jclose-cell" data-key="${esc(r.key)}">${jcloseBtn()}</td></tr>`).join("") : emptyRow(5, "No open tickets."));
+}
+
+// --- Jira Close action (write) — chains this project's forward-only workflow to Done + sets resolution.
+// One-way: Done is terminal here, so the confirm warns and there is no in-page undo.
+const jcloseBtn = () => `<button class="mini" data-act="jclose">Close</button>`;
+function showJiraCloseConfirm(cell) {
+  cell.innerHTML = `<span class="confirm-q">Resolve as</span> ` +
+    `<select class="jres" aria-label="Resolution"><option value="10000">Done</option><option value="11010">Won't Do</option><option value="6">Outdated</option></select> ` +
+    `<button class="mini ok" data-act="jgo">Close</button> <button class="mini" data-act="jcancel">Cancel</button>` +
+    `<span class="assign-err" style="display:block;margin-top:3px">⚠ One-way — this workflow has no reopen.</span>`;
+}
+async function doJiraClose(cell, key, resId, resName) {
+  cell.innerHTML = `<span class="confirm-q">Closing…</span>`;
+  try {
+    if (!JR) await resolveServers();
+    if (!JR) { cell.innerHTML = `<span class="assign-err">Jira connector not found — add Atlassian in claude.ai Settings → Connectors.</span> <button class="mini" data-act="jreset">↺</button>`; toast("Close failed", true); return; }
+    await closeJiraIssue(key, resId);
+    cell.innerHTML = `<span class="assigned-ok">✓ Closed (${esc(resName)})</span>`;
+    const tr = cell.closest("tr"); if (tr) tr.style.opacity = ".5";
+    toast(`${key} closed as ${resName}`);
+  } catch (err) {
+    const msg = (err && err.code) ? errCopy(err) : ((err && err.message) || "Close failed");
+    cell.innerHTML = `<span class="assign-err">${esc(msg)}</span> <button class="mini" data-act="jreset">↺</button>`;
+    toast("Close failed", true);
+  }
+}
+// Delegated on each Jira table (survives innerHTML repaints); wired once.
+function initJiraActions() {
+  ["jira-orphans", "jira-oldest"].forEach(id => {
+    const tbl = $(id); if (!tbl || tbl._jwired) return; tbl._jwired = true;
+    tbl.addEventListener("click", (e) => {
+      const btn = e.target.closest && e.target.closest("button[data-act]"); if (!btn) return;
+      const cell = btn.closest(".jclose-cell"); if (!cell) return;
+      const act = btn.dataset.act, key = cell.dataset.key;
+      if (act === "jclose") showJiraCloseConfirm(cell);
+      else if (act === "jcancel" || act === "jreset") cell.innerHTML = jcloseBtn();
+      else if (act === "jgo") { const sel = cell.querySelector(".jres"); const resId = sel ? sel.value : "10000"; const resName = sel ? sel.options[sel.selectedIndex].text : "Done"; doJiraClose(cell, key, resId, resName); }
+    });
+  });
+}
+// Jira section degrade (connector missing / error): one message, clear the rest.
+function jiraDegrade(html) {
+  const al = $("jira-alerts"); if (al) al.innerHTML = "";
+  const t = $("jira-tiles"); if (t) t.innerHTML = `<div class="secmsg" style="grid-column:1/-1">${html}</div>`;
+  ["jira-split", "jira-age"].forEach(id => { const e = $(id); if (e) e.innerHTML = ""; });
+  ["jira-orphans", "jira-oldest"].forEach(id => { const e = $(id); if (e) e.innerHTML = ""; });
+}
+
+// ---------- mcp data layer ----------
+function errCopy(err) {
+  const s = err && err.server ? err.server : "the connector";
+  switch (err && err.code) {
+    case "needs_reauth": return `Reconnect ${s} in claude.ai Settings → Connectors.`;
+    case "server_not_connected": return `Add ${s} in claude.ai Settings → Connectors.`;
+    case "selection_required": return `Choose a ${s} connector (Settings → Connectors).`;
+    case "blocked_by_policy": return `${s} is blocked by your org policy.`;
+    case "approval_required": return `${s} needs per-call approval, which isn't available here.`;
+    case "tool_error": return `${s} reported an error: ${esc(err.message || "unknown")}.`;
+    case "server_unavailable": case "rate_limited": return `${s} is temporarily unavailable — try Refresh in a moment.`;
+    default: return `Couldn't reach ${s}: ${esc((err && err.message) || "unknown error")}.`;
+  }
+}
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+async function call(server, tool, input) {
+  // one retry for retryable read failures
+  try { return await window.claude.mcp.callTool(server, tool, input, { cache: { refresh: true } }); }
+  catch (err) {
+    if (err && err.retryable) { await sleep(Math.min(err.retryAfterMs || 800, 3000) + Math.random() * 400); return await window.claude.mcp.callTool(server, tool, input, { cache: { refresh: true } }); }
+    throw err;
+  }
+}
+async function getAllTasks(server, baseInput) {
+  let out = [], offset = null, guard = 0, storedAt = null;
+  do {
+    const inp = offset ? { ...baseInput, offset } : baseInput;
+    const r = await call(server, "get_tasks", inp);
+    const p = r.payload || {};
+    out = out.concat(p.data || []);
+    offset = p.next_page && p.next_page.offset;
+    if (r.cache && r.cache.storedAt) storedAt = r.cache.storedAt;
+    guard++;
+  } while (offset && guard < 12);
+  return { tasks: out, storedAt };
+}
+// Fetch activity feeds for the triage-speed metric: capped at TRIAGE_CAP most-recent tickets,
+// TRIAGE_CONC in flight at a time. Individual failures are skipped so one bad feed can't blank the card.
+async function fetchStories(server, tasks) {
+  const list = (tasks || []).slice(0, TRIAGE_CAP);
+  const byGid = {}; let i = 0;
+  async function worker() {
+    while (i < list.length) {
+      const t = list[i++];
+      try {
+        const r = await call(server, "get_task_stories", { task_id: t.gid, opt_fields: "created_at,resource_subtype,created_by.name", limit: 100 });
+        byGid[t.gid] = (r.payload && r.payload.data) || [];
+      } catch (e) { /* skip this feed */ }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(TRIAGE_CONC, list.length) }, worker));
+  return { byGid, capHit: (tasks || []).length > TRIAGE_CAP };
+}
+// Jira: extract {nodes, pageInfo} robustly across payload shapes (payload / structuredContent /
+// bare / a JSON text content block) — same defensive approach as sfRecords.
+function jiraPage(r) {
+  const grab = (o) => (o && o.issues) ? o.issues : null;
+  let iss = grab(r && r.payload) || grab(r && r.structuredContent) || grab(r);
+  if (!iss) {
+    const blocks = (r && r.content) || [];
+    for (const b of blocks) {
+      if (b && b.type === "text" && typeof b.text === "string") {
+        try { const j = JSON.parse(b.text); if (j && j.issues) { iss = j.issues; break; } } catch (e) {}
+      }
+    }
+  }
+  const list = (iss && Array.isArray(iss.nodes)) ? iss.nodes : [];
+  const pi = iss && iss.pageInfo;
+  const next = (pi && pi.hasNextPage) ? (pi.nextPageToken || pi.endCursor || null) : null;
+  return { list, next };
+}
+// Page the full open MOPS backlog (~409) via nextPageToken; guard caps at 12 pages.
+async function getAllJira(server) {
+  let nodes = [], token = null, guard = 0;
+  do {
+    const inp = { cloudId: JIRA_CLOUD, jql: JIRA_JQL, fields: JIRA_FIELDS, maxResults: 100 };
+    if (token) inp.nextPageToken = token;
+    const r = await call(server, "searchJiraIssuesUsingJql", inp);
+    const { list, next } = jiraPage(r);
+    nodes = nodes.concat(list); token = next; guard++;
+  } while (token && guard < 12);
+  return nodes;
+}
+// Resolve Jira, pull, compute, render — independent of the Asana/SF sections; degrades on its own.
+async function loadJira() {
+  const t = $("jira-tiles"); if (t) t.innerHTML = `<div class="skeleton" style="grid-column:1/-1">Loading Jira intake…</div>`;
+  try {
+    if (!JR) await resolveServers();
+    if (!JR) { jiraDegrade("Add <b>Atlassian (Jira)</b> in claude.ai Settings → Connectors to see the MOPS Jira intake channel."); return; }
+    const nodes = await getAllJira(JR);
+    if (!nodes.length) { jiraDegrade("No open Jira issues returned for the MOPS project."); return; }
+    renderJira(computeJira(nodes, new Date()));
+  } catch (err) { jiraDegrade(errCopy(err)); }
+}
+// Extract a transitions[] array from a getTransitionsForJiraIssue result (robust across payload shapes).
+function jiraTransitionsFrom(r) {
+  const grab = (o) => (o && Array.isArray(o.transitions)) ? o.transitions : null;
+  let t = grab(r && r.payload) || grab(r && r.structuredContent) || grab(r);
+  if (!t) { const blocks = (r && r.content) || []; for (const b of blocks) { if (b && b.type === "text" && typeof b.text === "string") { try { const j = JSON.parse(b.text); if (j && Array.isArray(j.transitions)) { t = j.transitions; break; } } catch (e) {} } } }
+  return t || [];
+}
+// Close a ticket by walking the forward-only workflow to a Done-category status, supplying the
+// required resolution on the Done step. Writes are NOT auto-retried (a rejected write may have run).
+// One-way: Done is terminal in this project's workflow, so this cannot be undone from the page.
+async function closeJiraIssue(key, resolutionId) {
+  let lastTo = null;
+  for (let hop = 0; hop < 6; hop++) {
+    const r = await call(JR, "getTransitionsForJiraIssue", { cloudId: JIRA_CLOUD, issueIdOrKey: key });
+    const trans = jiraTransitionsFrom(r).filter(t => t.isAvailable !== false);
+    if (!trans.length) throw new Error(hop === 0 ? "No workflow transition available from its current status — close it manually in Jira (may need admin)." : `Moved to "${lastTo || "a later status"}" but no further transition is available — finish it in Jira.`);
+    let next = trans.find(t => t.to && t.to.statusCategory && t.to.statusCategory.key === "done");
+    const isDone = !!next;
+    if (!next) { if (trans.length > 1) throw new Error(`Several transitions available from "${lastTo || "the current status"}" — ambiguous, close it manually in Jira.`); next = trans[0]; }
+    const input = { cloudId: JIRA_CLOUD, issueIdOrKey: key, transition: { id: String(next.id) } };
+    if (isDone) input.fields = { resolution: { id: String(resolutionId) } };
+    await window.claude.mcp.callTool(JR, "transitionJiraIssue", input);   // WRITE — runs as the viewer, no auto-retry
+    lastTo = next.to && next.to.name;
+    if (isDone) return true;
+  }
+  throw new Error("Couldn't reach Done within 6 steps — check the ticket in Jira.");
+}
+// Extract SOQL rows robustly across payload shapes (structuredContent, payload.records,
+// a bare array, or a JSON text content block) — don't assume one wrapping.
+function sfRecords(r) {
+  const p = r && r.payload;
+  if (p && Array.isArray(p.records)) return p.records;
+  if (Array.isArray(p)) return p;
+  const sc = r && r.structuredContent;
+  if (sc && Array.isArray(sc.records)) return sc.records;
+  const blocks = (r && r.content) || [];
+  for (const b of blocks) {
+    if (b && b.type === "text" && typeof b.text === "string") {
+      try { const j = JSON.parse(b.text); if (j && Array.isArray(j.records)) return j.records; if (Array.isArray(j)) return j; } catch (e) {}
+    }
+  }
+  return [];
+}
+const N = (x) => (typeof x === "number" ? x : (parseFloat(x) || 0));
+// email SELECT: engagement only (Id kept to join opps back to campaigns). Opp/pipeline metrics come
+// from the Opportunity object via primary-source attribution (sfPrimaryOpps), NOT campaign rollups.
+const EMAIL_FIELDS = "Id, Name, StartDate, TotalEmailsDelivered, UniqueEmailOpens, UniqueEmailTrackedLinkClicks, NumberOfResponses";
+// aggregate a set of email campaign rows (engagement sums only)
+const aggEmail = (arr) => ({ count: arr.length,
+  delivered: arr.reduce((s, x) => s + N(x.TotalEmailsDelivered), 0),
+  opens: arr.reduce((s, x) => s + N(x.UniqueEmailOpens), 0),
+  clicks: arr.reduce((s, x) => s + N(x.UniqueEmailTrackedLinkClicks), 0),
+  responses: arr.reduce((s, x) => s + N(x.NumberOfResponses), 0) });
+// TRUE primary-source pipeline: distinct opps whose PRIMARY campaign source (Opportunity.CampaignId) is
+// an in-window email campaign. This is the metric the tile claims — NOT the influence rollup, which counts
+// association (multi-touch) and, summed across campaigns, double-counts opps that touched several emails.
+async function sfPrimaryOpps(server, cs, ce) {
+  const q = `SELECT Id, Amount, IsWon, CampaignId, Campaign.Name FROM Opportunity WHERE CampaignId IN (SELECT Id FROM Campaign WHERE TotalEmailsDelivered > 0 AND Type != 'Operational' AND StartDate >= ${cs} AND StartDate <= ${ce}) LIMIT 2000`;
+  return sfRecords(await call(server, "soqlQuery", { q }));
+}
+// aggregate primary-source opp rows: distinct count, summed Amount, won count, and a per-campaign breakdown
+function aggOpps(rows) {
+  const byCampaign = {}; let pipeline = 0, won = 0;
+  (rows || []).forEach(o => {
+    const amt = N(o.Amount); pipeline += amt; if (o.IsWon) won++;
+    const cid = o.CampaignId, nm = (o.Campaign && o.Campaign.Name) || cid || "(unknown)";
+    const g = byCampaign[cid] || (byCampaign[cid] = { name: nm, opps: 0, pipeline: 0, won: 0 });
+    g.opps++; g.pipeline += amt; if (o.IsWon) g.won++;
+  });
+  return { opps: (rows || []).length, pipeline, won, byCampaign };
+}
+// One row-level pull covering both windows; summed in JS (no aggregate-alias dependency).
+async function sfCampaigns(server, sinceStr) {
+  const q = `SELECT ${EMAIL_FIELDS} FROM Campaign WHERE TotalEmailsDelivered > 0 AND StartDate >= ${sinceStr} AND Type != 'Operational' ORDER BY StartDate DESC LIMIT 500`;
+  return sfRecords(await call(server, "soqlQuery", { q }));
+}
+function bucketEmail(rows, curStart, priStart) {
+  const cur = rows.filter(x => x.StartDate >= curStart);
+  const pri = rows.filter(x => x.StartDate >= priStart && x.StartDate < curStart);
+  return { curAgg: aggEmail(cur), priAgg: aggEmail(pri), curRows: cur };
+}
+// bucket an arbitrary current + prior date range (used by the quarter selector)
+function bucketRange(rows, cs, ce, ps, pe) {
+  const inR = (d, a, z) => d && d >= a && d <= z;
+  const cur = rows.filter(x => inR(x.StartDate, cs, ce));
+  return { cur: aggEmail(cur), prior: aggEmail(rows.filter(x => inR(x.StartDate, ps, pe))), curRows: cur };
+}
+async function sfCampaignsRange(server, since, until) {
+  const q = `SELECT ${EMAIL_FIELDS} FROM Campaign WHERE TotalEmailsDelivered > 0 AND StartDate >= ${since} AND StartDate <= ${until} AND Type != 'Operational' ORDER BY StartDate DESC LIMIT 1000`;
+  return sfRecords(await call(server, "soqlQuery", { q }));
+}
+// "Last 30 days" + the current and previous 3 calendar quarters (each vs its prior quarter)
+function buildPeriods(now) {
+  const q = Math.floor(now.getMonth() / 3) + 1, y = now.getFullYear();
+  const qStart = (yy, qq) => `${yy}-${String((qq - 1) * 3 + 1).padStart(2, "0")}-01`;
+  const qEnd = (yy, qq) => `${yy}-${["03-31", "06-30", "09-30", "12-31"][qq - 1]}`;
+  const prev = (yy, qq) => (qq > 1 ? [yy, qq - 1] : [yy - 1, 4]);
+  const list = [{ key: "last30", label: "Last 30 days", priLabel: "prior 30 days",
+    cs: ymd(addDays(now, -30)), ce: ymd(now), ps: ymd(addDays(now, -60)), pe: ymd(addDays(now, -30)) }];
+  let cy = y, cq = q;
+  for (let i = 0; i < 4; i++) {
+    const [py, pq] = prev(cy, cq);
+    list.push({ key: `q${cy}q${cq}`, label: `Q${cq} ${cy}`, priLabel: `Q${pq} ${py}`,
+      cs: qStart(cy, cq), ce: qEnd(cy, cq), ps: qStart(py, pq), pe: qEnd(py, pq) });
+    cy = py; cq = pq;
+  }
+  return list;
+}
+// re-query Salesforce for a chosen period and repaint only the email card
+async function loadEmailPeriod(p) {
+  const el = $("email"); el.className = "skeleton"; el.textContent = "Loading…";
+  try {
+    if (!SF) await resolveServers();
+    if (!SF) { el.className = ""; el.innerHTML = `<div class="secmsg">Add Salesforce in claude.ai Settings → Connectors.</div>`; return; }
+    const rows = await sfCampaignsRange(SF, p.ps, p.ce);
+    const oppRows = await sfPrimaryOpps(SF, p.cs, p.ce);   // primary-source opps for the selected window
+    const bk = bucketRange(rows, p.cs, p.ce, p.ps, p.pe);
+    $("w-email").textContent = `${p.label} vs ${p.priLabel}`;
+    el.className = "";
+    el.innerHTML = emailTiles(perfFromAggs(bk.cur, bk.prior, aggOpps(oppRows)), bk.curRows);
+    if (bk.cur.count === 0) el.insertAdjacentHTML("afterbegin", `<p class="sub" style="margin-bottom:10px">No email campaigns with sends found in ${esc(p.label)}.</p>`);
+  } catch (err) { el.className = ""; el.innerHTML = `<div class="secmsg">${errCopy(err)}</div>`; }
+}
+
+// ============================================================================
+// EMAIL PERFORMANCE REPORT — full-brief generator for any quarter / month / week.
+// Mirrors outputs/Email_Performance_Brief structure and the pipeline-influenced-email
+// + parbot-email-performance skills. Computes client-side from ONE Campaign pull so the
+// on-screen report and the Markdown export reconcile to the exact same source rows.
+// Uses the Campaign rollup pipeline fields (AmountAllOpportunities etc.) — the documented
+// single-source metric the written brief used — NOT the tile's Opportunity primary-source
+// query; each per-campaign AmountAllOpportunities is primary-source, so summing is additive.
+// ============================================================================
+const REPORT_FIELDS = "Id, Name, StartDate, Type, TotalEmailsDelivered, UniqueEmailOpens, UniqueEmailTrackedLinkClicks, NumberOfResponses, NumberOfOpportunities, AmountAllOpportunities, NumberOfWonOpportunities, Product_Cloud_Interest__c";
+async function sfReportCampaigns(server, since, until) {
+  const q = `SELECT ${REPORT_FIELDS} FROM Campaign WHERE TotalEmailsDelivered > 0 AND StartDate >= ${since} AND StartDate <= ${until} AND Type != 'Operational' ORDER BY TotalEmailsDelivered DESC LIMIT 1000`;
+  return sfRecords(await call(server, "soqlQuery", { q }));
+}
+// best-effort persona read (Contact side, engaged members). Within-sample only (~7-8% sync).
+async function sfPersona(server, cs, ce) {
+  const q = `SELECT Contact.Job_Function__c func, COUNT(Id) cnt FROM CampaignMember WHERE Campaign.TotalEmailsDelivered > 0 AND Campaign.Type != 'Operational' AND Campaign.StartDate >= ${cs} AND Campaign.StartDate <= ${ce} AND Type = 'Contact' AND HasResponded = true GROUP BY Contact.Job_Function__c ORDER BY COUNT(Id) DESC LIMIT 8`;
+  return sfRecords(await call(server, "soqlQuery", { q }));
+}
+
+// Build the selectable periods for a granularity. Each entry has an explicit current window
+// [cs..ce] and the immediately-preceding same-length prior window [ps..pe].
+function reportPeriods(now, gran) {
+  const iso = (y, m, d) => `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const out = [];
+  if (gran === "quarter") {
+    let cy = now.getFullYear(), cq = Math.floor(now.getMonth() / 3) + 1;
+    const qStart = (y, q) => iso(y, (q - 1) * 3 + 1, 1);
+    const qEndA = ["03-31", "06-30", "09-30", "12-31"], qEnd = (y, q) => `${y}-${qEndA[q - 1]}`;
+    const prev = (y, q) => (q > 1 ? [y, q - 1] : [y - 1, 4]);
+    for (let i = 0; i < 8; i++) {
+      const [py, pq] = prev(cy, cq);
+      out.push({ key: `q${cy}q${cq}`, label: `Q${cq} ${cy}`, priLabel: `Q${pq} ${py}`, gran,
+        cs: qStart(cy, cq), ce: qEnd(cy, cq), ps: qStart(py, pq), pe: qEnd(py, pq) });
+      cy = py; cq = pq;
+    }
+  } else if (gran === "month") {
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const y = d.getFullYear(), m = d.getMonth() + 1, last = new Date(y, m, 0).getDate();
+      const pd = new Date(y, m - 2, 1), py = pd.getFullYear(), pm = pd.getMonth() + 1, plast = new Date(py, pm, 0).getDate();
+      out.push({ key: `m${y}-${m}`, label: `${MON[m - 1]} ${y}`, priLabel: `${MON[pm - 1]} ${py}`, gran,
+        cs: iso(y, m, 1), ce: iso(y, m, last), ps: iso(py, pm, 1), pe: iso(py, pm, plast) });
+    }
+  } else { // week — Sunday-start, last 12 weeks (matches the send-calendar's week model)
+    const t = new Date(now); t.setHours(0, 0, 0, 0);
+    const start = addDays(t, -t.getDay());
+    for (let i = 0; i < 12; i++) {
+      const cs = addDays(start, -7 * i), ce = addDays(cs, 6), ps = addDays(cs, -7), pe = addDays(cs, -1);
+      out.push({ key: `w${ymd(cs)}`, label: `Week of ${ymd(cs)}`, priLabel: `Week of ${ymd(ps)}`, gran,
+        cs: ymd(cs), ce: ymd(ce), ps: ymd(ps), pe: ymd(pe) });
+    }
+  }
+  return out;
+}
+
+// report-scoped formatters (2-dp rates so sub-1% CTR isn't rounded away; full $ in tables)
+const rrate = (x) => (x == null || isNaN(x)) ? "—" : (x * 100).toFixed(2) + "%";
+const rmoney = (v) => (v == null || isNaN(v)) ? "—" : "$" + Math.round(v).toLocaleString();
+const rnum = (v) => ((v == null || isNaN(v)) ? 0 : v).toLocaleString();
+const rabbr = (v) => { v = N(v); if (v >= 1e6) return (v / 1e6).toFixed(1) + "M"; if (v >= 1e3) return Math.round(v / 1e3) + "K"; return String(v); };
+const rtrim = (s) => { s = String(s || ""); return s.length > 52 ? s.slice(0, 50) + "…" : s; };
+const ptDelta = (c, p) => { if (c == null || p == null) return "—"; const d = (c - p) * 100; return (d >= 0 ? "+" : "") + d.toFixed(2) + " pt"; };
+const ptDeltaHtml = (c, p) => { if (c == null || p == null) return ""; const d = (c - p) * 100; if (Math.abs(d) < 0.005) return ""; return `<span class="${d > 0 ? "up" : "down"}">${d > 0 ? "▲" : "▼"} ${Math.abs(d).toFixed(2)}pt</span>`; };
+const pctChange = (c, p) => (p > 0 ? ((c - p >= 0 ? "+" : "") + Math.round((c - p) / p * 100) + "%") : "—");
+
+// Compute the full report object from one row set covering [ps..ce], plus optional persona rows.
+function computeEmailReport(rows, period, persona) {
+  const { cs, ce, ps, pe } = period;
+  const inR = (d, a, z) => d && d >= a && d <= z;
+  const cur = rows.filter(r => inR(r.StartDate, cs, ce));
+  const pri = rows.filter(r => inR(r.StartDate, ps, pe));
+  const rate = (n, d) => (d > 0 ? n / d : null);
+  const sum = (a, f) => a.reduce((s, x) => s + N(x[f]), 0);
+  const core = (a) => ({ n: a.length, d: sum(a, "TotalEmailsDelivered"), o: sum(a, "UniqueEmailOpens"),
+    c: sum(a, "UniqueEmailTrackedLinkClicks"), resp: sum(a, "NumberOfResponses"), opps: sum(a, "NumberOfOpportunities"),
+    pipe: sum(a, "AmountAllOpportunities"), won: sum(a, "NumberOfWonOpportunities") });
+  const C = core(cur), P = core(pri);
+  const rates = {
+    cur_open: rate(C.o, C.d), pri_open: rate(P.o, P.d),
+    cur_ctr: rate(C.c, C.d), pri_ctr: rate(P.c, P.d),
+    cur_ctor: rate(C.c, C.o), pri_ctor: rate(P.c, P.o)
+  };
+  // Driver #1 — audience-size cohorts (labels avoid < / > so they're HTML-safe)
+  const cohDef = [
+    ["Mass (50k+)", d => d > 50000],
+    ["Large (10k–50k)", d => d >= 10000 && d <= 50000],
+    ["Mid (1k–10k)", d => d >= 1000 && d < 10000],
+    ["Targeted (under 1k)", d => d < 1000]
+  ];
+  const cohorts = cohDef.map(([label, test]) => {
+    const x = core(cur.filter(r => test(N(r.TotalEmailsDelivered))));
+    return { label, n: x.n, d: x.d, open: rate(x.o, x.d), ctr: rate(x.c, x.d), ctor: rate(x.c, x.o),
+      pipe: x.pipe, per1k: x.d > 0 ? x.pipe / (x.d / 1000) : null };
+  });
+  // Driver #2 — product line
+  const pmap = {}; cur.forEach(r => { const k = r.Product_Cloud_Interest__c || "(unset)"; (pmap[k] = pmap[k] || []).push(r); });
+  const products = Object.entries(pmap).map(([k, a]) => {
+    const x = core(a);
+    return { name: k, n: x.n, d: x.d, open: rate(x.o, x.d), ctr: rate(x.c, x.d), ctor: rate(x.c, x.o),
+      pipe: x.pipe, opps: x.opps, per1k: x.d > 0 ? x.pipe / (x.d / 1000) : null };
+  }).sort((a, z) => z.pipe - a.pipe);
+  // Top campaigns
+  const topPipe = cur.slice().sort((a, z) => N(z.AmountAllOpportunities) - N(a.AmountAllOpportunities)).slice(0, 5).map(r => {
+    const d = N(r.TotalEmailsDelivered);
+    return { name: r.Name, d, opps: N(r.NumberOfOpportunities), won: N(r.NumberOfWonOpportunities),
+      pipe: N(r.AmountAllOpportunities), per1k: d > 0 ? N(r.AmountAllOpportunities) / (d / 1000) : null };
+  });
+  const elig = cur.filter(r => N(r.TotalEmailsDelivered) >= 1000);
+  const topCtr = elig.slice().sort((a, z) => rate(N(z.UniqueEmailTrackedLinkClicks), N(z.TotalEmailsDelivered)) - rate(N(a.UniqueEmailTrackedLinkClicks), N(a.TotalEmailsDelivered))).slice(0, 5).map(r => {
+    const d = N(r.TotalEmailsDelivered);
+    return { name: r.Name, d, ctr: rate(N(r.UniqueEmailTrackedLinkClicks), d), open: rate(N(r.UniqueEmailOpens), d) };
+  });
+  // Red flags — large sends with abnormally low open (deliverability/targeting)
+  const redFlags = cur.filter(r => N(r.TotalEmailsDelivered) >= 10000 && rate(N(r.UniqueEmailOpens), N(r.TotalEmailsDelivered)) < 0.08)
+    .map(r => { const d = N(r.TotalEmailsDelivered); return { name: r.Name, d, open: rate(N(r.UniqueEmailOpens), d) }; })
+    .sort((a, z) => a.open - z.open);
+  // Driver #3 — concentration in the single largest send
+  const biggest = cur.slice().sort((a, z) => N(z.TotalEmailsDelivered) - N(a.TotalEmailsDelivered))[0];
+  const mega = biggest ? {
+    name: biggest.Name, d: N(biggest.TotalEmailsDelivered), pipe: N(biggest.AmountAllOpportunities),
+    dShare: C.d > 0 ? N(biggest.TotalEmailsDelivered) / C.d : null, pipeShare: C.pipe > 0 ? N(biggest.AmountAllOpportunities) / C.pipe : null,
+    open: rate(N(biggest.UniqueEmailOpens), N(biggest.TotalEmailsDelivered)), ctr: rate(N(biggest.UniqueEmailTrackedLinkClicks), N(biggest.TotalEmailsDelivered))
+  } : null;
+  // Recommendations — only emitted when the data supports them (no generic filler)
+  const recs = [];
+  const mass = cohorts.find(c => c.label.startsWith("Mass")), tgt = cohorts.find(c => c.label.startsWith("Targeted"));
+  if (rates.cur_ctr != null && rates.pri_ctr != null && P.d > 0 && rates.cur_ctr < rates.pri_ctr * 0.9)
+    recs.push(`Diagnose the CTR drop first — CTR fell from ${rrate(rates.pri_ctr)} to ${rrate(rates.cur_ctr)} while opens held near ${rrate(rates.cur_open)}. That points to content/CTA/relevance after the open, not deliverability.`);
+  if (tgt && mass && tgt.ctr && mass.ctr && mass.ctr > 0) {
+    const mult = tgt.ctr / mass.ctr, pmult = (tgt.per1k && mass.per1k && mass.per1k > 0) ? tgt.per1k / mass.per1k : null;
+    recs.push(`Shift mix toward targeted sends — under-1k audiences convert ${mult.toFixed(1)}× the CTR of mass blasts${pmult ? ` and ${pmult.toFixed(1)}× the pipeline per 1k delivered` : ""}. Set a floor on segmented volume rather than defaulting to broad sends.`);
+  }
+  const weak = products.filter(p => p.d >= 5000 && p.ctor != null).sort((a, z) => a.ctor - z.ctor)[0];
+  if (weak) recs.push(`Give ${weak.name} a CTA/content review — weakest click-to-open at ${rrate(weak.ctor)}.`);
+  if (redFlags.length) recs.push(`Audit ${redFlags.length} large send${redFlags.length > 1 ? "s" : ""} with sub-8% open rates before re-sending to those lists (see Red flags).`);
+  recs.push(`Close instrumentation gaps for a more reliable next report: sync subject lines and NumberSent from Pardot, and improve Campaign Member sync coverage (currently ~7–8%) to unlock true delivery-rate and per-persona analysis.`);
+
+  return { period, cs, ce, ps, pe, cur: C, pri: P, rates, cohorts, products, topPipe, topCtr, redFlags, mega, recs, persona: persona || null };
+}
+
+// The single "so what" sentence at the top of the report — chosen from the CTR trend.
+function headlineSentence(r) {
+  const R = r.rates, g = r.period.gran;
+  if (R.cur_ctr != null && R.pri_ctr != null && r.pri.d > 0) {
+    if (R.cur_ctr < R.pri_ctr * 0.9)
+      return `**Watch:** click-through fell from ${rrate(R.pri_ctr)} to ${rrate(R.cur_ctr)} (CTOR ${rrate(R.pri_ctor)}→${rrate(R.cur_ctor)}) while opens held near ${rrate(R.cur_open)} — a content/CTA/relevance signal, not deliverability, and not explained by pipeline lag.`;
+    if (R.cur_ctr > R.pri_ctr * 1.1)
+      return `**Up:** click-through rose from ${rrate(R.pri_ctr)} to ${rrate(R.cur_ctr)} vs the prior ${g} — engagement quality improved.`;
+  }
+  return `Engagement held roughly steady vs the prior ${g}; the biggest controllable lever remains audience precision (Driver #1).`;
+}
+
+// Render the on-screen report (tiles + tables), matching the dashboard's visual system.
+function renderEmailReport(r) {
+  const R = r.rates, C = r.cur, P = r.pri, L = r.period.label, PL = r.period.priLabel;
+  const partial = r.ce > ymd(new Date());
+  const lead = headlineSentence(r).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
+  const tiles = `<div class="tiles" style="margin:0 0 6px">
+    <div class="tile"><div class="k">Open rate</div><div class="v">${rrate(R.cur_open)}</div><div class="s">${ptDeltaHtml(R.cur_open, R.pri_open)} · MPP-inflated</div></div>
+    <div class="tile"><div class="k">CTR</div><div class="v">${rrate(R.cur_ctr)}</div><div class="s">${ptDeltaHtml(R.cur_ctr, R.pri_ctr) || "click-through"}</div></div>
+    <div class="tile"><div class="k">CTOR</div><div class="v">${rrate(R.cur_ctor)}</div><div class="s">${ptDeltaHtml(R.cur_ctor, R.pri_ctor) || "click-to-open"}</div></div>
+    <div class="tile"><div class="k">Pipeline</div><div class="v">${money(C.pipe)}</div><div class="s">${rnum(C.opps)} opps · ${rnum(C.won)} won</div></div>
+    <div class="tile"><div class="k">Delivered</div><div class="v">${rabbr(C.d)}</div><div class="s">${C.n} campaigns</div></div>
+    <div class="tile"><div class="k">Responses</div><div class="v">${rabbr(C.resp)}</div><div class="s">campaign members</div></div>
+  </div>`;
+  const glance = `<div class="rep-h">1 · ${esc(L)} at a glance</div>
+    <div class="scroll"><table>
+    <tr><th>Metric</th><th>${esc(L)}</th><th>${esc(PL)}</th><th>vs prior</th></tr>
+    <tr><td>Email campaigns</td><td>${C.n}</td><td>${P.n}</td><td>${C.n - P.n >= 0 ? "+" : ""}${C.n - P.n}</td></tr>
+    <tr><td>Emails delivered</td><td>${rnum(C.d)}</td><td>${rnum(P.d)}</td><td>${pctChange(C.d, P.d)}</td></tr>
+    <tr><td>Open rate (unique)</td><td>${rrate(R.cur_open)}</td><td>${rrate(R.pri_open)}</td><td>${ptDelta(R.cur_open, R.pri_open)} <span class="pill orange">MPP</span></td></tr>
+    <tr><td><b>CTR (unique)</b></td><td><b>${rrate(R.cur_ctr)}</b></td><td>${rrate(R.pri_ctr)}</td><td>${ptDelta(R.cur_ctr, R.pri_ctr)}</td></tr>
+    <tr><td><b>CTOR (click-to-open)</b></td><td><b>${rrate(R.cur_ctor)}</b></td><td>${rrate(R.pri_ctor)}</td><td>${ptDelta(R.cur_ctor, R.pri_ctor)}</td></tr>
+    <tr><td>Pipeline influenced</td><td>${rmoney(C.pipe)}</td><td>${rmoney(P.pipe)}</td><td><i>maturation lag — not a decline</i></td></tr>
+    <tr><td>Opportunities</td><td>${rnum(C.opps)}</td><td>${rnum(P.opps)}</td><td><i>lags the send</i></td></tr>
+    <tr><td>Won (count)</td><td>${rnum(C.won)}</td><td>${rnum(P.won)}</td><td><i>lags the send</i></td></tr>
+    </table></div>`;
+  const cohRows = r.cohorts.map(c => `<tr><td>${esc(c.label)}</td><td>${c.n}</td><td>${rnum(c.d)}</td><td>${rrate(c.open)}</td><td>${rrate(c.ctr)}</td><td>${rrate(c.ctor)}</td><td>${rmoney(c.per1k)}</td></tr>`).join("");
+  const d1 = `<div class="rep-h">2 · What makes the best campaigns win</div>
+    <p class="sub" style="margin:0 0 8px"><b>Driver #1 — Audience precision.</b> Engagement and pipeline efficiency typically rise as the audience gets smaller and better-targeted.</p>
+    <div class="scroll"><table><tr><th>Audience size</th><th>#</th><th>Delivered</th><th>Open</th><th>CTR</th><th>CTOR</th><th>$/1k delivered</th></tr>${cohRows}</table></div>`;
+  const prodRows = r.products.map(p => `<tr><td>${esc(p.name)}</td><td>${p.n}</td><td>${rnum(p.d)}</td><td>${rrate(p.open)}</td><td>${rrate(p.ctr)}</td><td>${rrate(p.ctor)}</td><td>${rmoney(p.pipe)}</td><td>${rnum(p.opps)}</td></tr>`).join("");
+  const d2 = `<p class="sub" style="margin:14px 0 8px"><b>Driver #2 — Product line</b> (a proxy for content strategy).</p>
+    <div class="scroll"><table><tr><th>Product line</th><th>#</th><th>Delivered</th><th>Open</th><th>CTR</th><th>CTOR</th><th>Pipeline</th><th>Opps</th></tr>${prodRows}</table></div>`;
+  const d3 = r.mega && r.mega.dShare != null ? `<p class="sub" style="margin:14px 0 0"><b>Driver #3 — Scale vs. precision.</b> The largest single send, <b>${rtrim(esc(r.mega.name))}</b>, was ${rrate(r.mega.dShare)} of delivered volume and ${rrate(r.mega.pipeShare)} of pipeline (${rmoney(r.mega.pipe)}) at ${rrate(r.mega.open)} open / ${rrate(r.mega.ctr)} CTR. Scale drives absolute pipeline; targeting drives efficiency — budget them as different jobs.</p>` : "";
+  const tp = r.topPipe.length ? `<div class="scroll"><table><tr><th>Top campaigns by pipeline ($)</th><th>Delivered</th><th>Opps</th><th>Won</th><th>$/1k</th><th>Pipeline</th></tr>${r.topPipe.map(t => `<tr><td>${rtrim(esc(t.name))}</td><td>${rnum(t.d)}</td><td>${t.opps}</td><td>${t.won}</td><td>${rmoney(t.per1k)}</td><td>${rmoney(t.pipe)}</td></tr>`).join("")}</table></div>` : `<p class="empty">No campaigns with attached pipeline in this window.</p>`;
+  const tc = r.topCtr.length ? `<div class="scroll" style="margin-top:12px"><table><tr><th>Top campaigns by CTR (≥1k delivered)</th><th>Delivered</th><th>Open</th><th>CTR</th></tr>${r.topCtr.map(t => `<tr><td>${rtrim(esc(t.name))}</td><td>${rnum(t.d)}</td><td>${rrate(t.open)}</td><td>${rrate(t.ctr)}</td></tr>`).join("")}</table></div>` : `<p class="empty" style="margin-top:12px">No campaigns with ≥1,000 delivered in this window (too small to rank CTR reliably).</p>`;
+  const top = `<div class="rep-h">3 · Top campaigns</div>${tp}${tc}`;
+  const rf = `<div class="rep-h">4 · Red flags (deliverability / targeting)</div>` + (r.redFlags.length
+    ? `<div class="scroll"><table><tr><th>Large send with sub-8% open</th><th>Delivered</th><th>Open</th></tr>${r.redFlags.map(f => `<tr><td>${rtrim(esc(f.name))}</td><td>${rnum(f.d)}</td><td><span class="pill pink">${rrate(f.open)}</span></td></tr>`).join("")}</table></div>`
+    : `<p class="empty">None — no large send (≥10k delivered) with a sub-8% open rate this period.</p>`);
+  const recs = `<div class="rep-h">5 · Recommendations</div><ol class="rep-rec">${r.recs.map(x => `<li>${esc(x)}</li>`).join("")}</ol>`;
+  const persona = `<div class="rep-h">6 · Persona read (directional only)</div>` + (r.persona && r.persona.length
+    ? `<p class="rep-note" style="border:0;padding:0;margin:0">Most-engaged job functions among synced Campaign Members: ${r.persona.map(p => `<b>${esc(p.func || "(unset)")}</b> (${rnum(N(p.cnt))})`).join(" · ")}. Reflects who engaged within a ~7–8% responder-biased sample — <i>not</i> per-persona open/click rates.</p>`
+    : `<p class="rep-note" style="border:0;padding:0;margin:0">Persona breakdown unavailable this run (query returned nothing or timed out). Full persona analysis lives in the <code>parbot-email-performance</code> deck.</p>`);
+  const notes = `<div class="rep-note"><b>How to read this (reliability).</b> Population: Salesforce Campaigns with delivered emails and <code>Type ≠ Operational</code>, ${esc(r.cs)} → ${esc(r.ce)}. Definitions: open = unique opens ÷ delivered · CTR = unique clicks ÷ delivered · CTOR = clicks ÷ opens · pipeline = <code>AmountAllOpportunities</code> (single-touch, primary-source). Opens are MPP-inflated → trust CTR/CTOR. Pipeline $ lags the send (don't read a lower recent figure as a decline); won $ and ROI are unreliable in this org, so only won <i>counts</i> are shown. Subject lines and NumberSent aren't synced. Persona is within-sample only.</div>`;
+  const exportRow = `<div class="rep-export"><button class="btn" id="rep-md-copy">Copy Markdown</button><button class="btn" id="rep-md-save">Save .md file</button><button class="mini" id="rep-md-toggle">Show Markdown</button><span class="sub">Same structure &amp; format as the written brief — copy, save to a file, or paste into a doc or Slack.</span></div><textarea id="rep-md" class="md-area" readonly hidden></textarea>`;
+  const badge = partial ? `<span class="partial">Partial — period in progress</span>` : "";
+  return `<div class="rep-lead">${lead}${badge}</div>${tiles}${glance}${d1}${d2}${d3}${top}${rf}${recs}${persona}${notes}${exportRow}`;
+}
+
+// Serialize the report to the written-brief Markdown format (the exportable "accurate report").
+function reportToMarkdown(r) {
+  const R = r.rates, C = r.cur, P = r.pri, g = r.period.gran, L = r.period.label, PL = r.period.priLabel;
+  const clean = (s) => String(s).replace(/<[^>]+>/g, "");
+  const o = [];
+  o.push(`# Email Campaign Performance Brief — ${L}`, "");
+  o.push(`**Prepared for:** Acquia Marketing team · **Source:** Salesforce Campaign records (Pardot / Account Engagement rollups), read-only. Generated live from the MOPS Command Center.`);
+  o.push(`**Window:** ${r.cs} → ${r.ce} (${g}). **Comparison:** ${PL} (${r.ps} → ${r.pe}).`, "");
+  o.push(`## 0. How to read this (reliability first)`);
+  o.push(`- Population: Salesforce Campaigns with \`TotalEmailsDelivered > 0\` and \`Type != 'Operational'\`, ${r.cs}–${r.ce} → **${C.n} campaigns**.`);
+  o.push(`- Definitions: open rate = unique opens / delivered · CTR = unique clicks / delivered · CTOR = clicks / opens · pipeline = AmountAllOpportunities (single-touch, primary-source).`);
+  o.push(`- Opens are inflated by Apple Mail Privacy Protection — treat open rate as directional; **CTR and CTOR are the reliable engagement signals.**`);
+  o.push(`- Pipeline $ lags the send — do not read a lower recent-period figure as underperformance. Won $ and ROI fields are unreliable in this org, so only won *counts* are reported.`);
+  o.push(`- Subject lines and NumberSent are not synced (no true delivery rate / subject-length analysis). Persona is within-sample only (~7–8% of recipients sync as Campaign Members).`, "");
+  o.push(`## 1. ${L} at a glance`);
+  o.push(`| Metric | ${L} | ${PL} | vs prior |`, `|---|---|---|---|`);
+  o.push(`| Email campaigns | ${C.n} | ${P.n} | ${C.n - P.n >= 0 ? "+" : ""}${C.n - P.n} |`);
+  o.push(`| Emails delivered | ${rnum(C.d)} | ${rnum(P.d)} | ${pctChange(C.d, P.d)} |`);
+  o.push(`| Open rate (unique) | ${rrate(R.cur_open)} | ${rrate(R.pri_open)} | ${ptDelta(R.cur_open, R.pri_open)} (MPP-inflated) |`);
+  o.push(`| CTR (unique) | ${rrate(R.cur_ctr)} | ${rrate(R.pri_ctr)} | ${ptDelta(R.cur_ctr, R.pri_ctr)} |`);
+  o.push(`| CTOR (click-to-open) | ${rrate(R.cur_ctor)} | ${rrate(R.pri_ctor)} | ${ptDelta(R.cur_ctor, R.pri_ctor)} |`);
+  o.push(`| Pipeline influenced | ${rmoney(C.pipe)} | ${rmoney(P.pipe)} | maturation lag — not a decline |`);
+  o.push(`| Opportunities | ${rnum(C.opps)} | ${rnum(P.opps)} | lags the send |`);
+  o.push(`| Won (count) | ${rnum(C.won)} | ${rnum(P.won)} | lags the send |`, "");
+  o.push(clean(headlineSentence(r)), "");
+  o.push(`## 2. What makes the best campaigns perform best`);
+  o.push(`### Driver #1 — Audience precision`);
+  o.push(`| Audience size | # | Delivered | Open | CTR | CTOR | $/1k delivered |`, `|---|---|---|---|---|---|---|`);
+  r.cohorts.forEach(c => o.push(`| ${c.label} | ${c.n} | ${rnum(c.d)} | ${rrate(c.open)} | ${rrate(c.ctr)} | ${rrate(c.ctor)} | ${rmoney(c.per1k)} |`));
+  o.push("", `### Driver #2 — Product line (content-strategy proxy)`);
+  o.push(`| Product line | # | Delivered | Open | CTR | CTOR | Pipeline | Opps |`, `|---|---|---|---|---|---|---|---|`);
+  r.products.forEach(p => o.push(`| ${p.name} | ${p.n} | ${rnum(p.d)} | ${rrate(p.open)} | ${rrate(p.ctr)} | ${rrate(p.ctor)} | ${rmoney(p.pipe)} | ${rnum(p.opps)} |`));
+  if (r.mega && r.mega.dShare != null) {
+    o.push("", `### Driver #3 — Scale vs. precision`);
+    o.push(`- Largest single send **${rtrim(r.mega.name)}** = ${rrate(r.mega.dShare)} of delivered and ${rrate(r.mega.pipeShare)} of pipeline (${rmoney(r.mega.pipe)}), at ${rrate(r.mega.open)} open / ${rrate(r.mega.ctr)} CTR. Scale drives absolute pipeline; targeting drives efficiency — budget them separately.`);
+  }
+  o.push("", `## 3. Top campaigns`, `**Top ${r.topPipe.length} by pipeline ($):**`);
+  r.topPipe.forEach((t, i) => o.push(`${i + 1}. ${rtrim(t.name)} — ${rmoney(t.pipe)} · ${rnum(t.d)} delivered · ${t.opps} opps · ${t.won} won · ${rmoney(t.per1k)}/1k`));
+  o.push("", `**Top ${r.topCtr.length} by CTR (>= 1,000 delivered):**`);
+  r.topCtr.forEach((t, i) => o.push(`${i + 1}. ${rtrim(t.name)} — ${rrate(t.ctr)} CTR · ${rrate(t.open)} open · ${rnum(t.d)} delivered`));
+  o.push("", `## 4. Red flags (deliverability / targeting)`);
+  if (r.redFlags.length) r.redFlags.forEach(f => o.push(`- ${rtrim(f.name)} — ${rrate(f.open)} open on ${rnum(f.d)} delivered`));
+  else o.push(`- None: no large sends (>= 10k delivered) with sub-8% open rates this period.`);
+  o.push("", `## 5. Recommendations`);
+  r.recs.forEach((x, i) => o.push(`${i + 1}. ${clean(x)}`));
+  o.push("", `## 6. Persona read (directional only — within-sample)`);
+  if (r.persona && r.persona.length) o.push(`Most-engaged job functions among synced Campaign Members: ${r.persona.map(p => `${p.func || "(unset)"} (${rnum(N(p.cnt))})`).join(" · ")}. Reflects who engaged within a ~7–8% responder-biased sample — not per-persona rates.`);
+  else o.push(`Persona breakdown unavailable this run. Full persona analysis lives in the \`parbot-email-performance\` deck.`);
+  o.push("", `---`, `*Generated ${r.cs}–${r.ce} from live Salesforce data via the MOPS Command Center. Reproducible for any quarter, month, or week.*`);
+  return o.join("\n");
+}
+
+// timeline periods (fixed at boot) + last-generated markdown for export
+const REP_NOW = new Date();
+const REP_PERIODS = { quarter: reportPeriods(REP_NOW, "quarter"), month: reportPeriods(REP_NOW, "month"), week: reportPeriods(REP_NOW, "week") };
+let LAST_REPORT_MD = "", LAST_REPORT_FILENAME = "";
+function fillRepPeriods() {
+  const g = $("rep-gran").value, sel = $("rep-period"); const list = REP_PERIODS[g] || []; const todayS = ymd(new Date());
+  sel.innerHTML = list.map(p => `<option value="${p.key}">${esc(p.label)}${p.ce > todayS ? " (in progress)" : ""}</option>`).join("");
+  const firstComplete = list.findIndex(p => p.ce <= todayS); sel.selectedIndex = firstComplete >= 0 ? firstComplete : 0;
+}
+function repCopyMd() {
+  const ta = $("rep-md"), tg = $("rep-md-toggle");
+  if (ta) { ta.hidden = false; if (tg) tg.textContent = "Hide Markdown"; ta.focus(); ta.select(); }
+  const done = () => toast("Report Markdown copied — paste into a doc or Slack");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(LAST_REPORT_MD).then(done).catch(() => { try { document.execCommand("copy"); done(); } catch (e) { toast("Select the text and copy", true); } });
+  } else { try { document.execCommand("copy"); done(); } catch (e) { toast("Select the text and copy", true); } }
+}
+function wireReportButtons() {
+  const ta = $("rep-md"); if (ta) ta.value = LAST_REPORT_MD;
+  const tg = $("rep-md-toggle");
+  if (tg && !tg._w) { tg._w = 1; tg.addEventListener("click", () => { if (!ta) return; ta.hidden = !ta.hidden; tg.textContent = ta.hidden ? "Show Markdown" : "Hide Markdown"; if (!ta.hidden) { ta.focus(); ta.select(); } }); }
+  const cp = $("rep-md-copy"); if (cp && !cp._w) { cp._w = 1; cp.addEventListener("click", repCopyMd); }
+  const sv = $("rep-md-save"); if (sv && !sv._w) { sv._w = 1; sv.addEventListener("click", repSaveMd); }
+}
+// Save the report to a .md file via the downloads capability (viewer confirms name + size).
+// Falls back to revealing the Markdown textarea if downloads isn't granted in this view.
+async function repSaveMd() {
+  if (!LAST_REPORT_MD) { toast("Generate a report first", true); return; }
+  if (!(window.claude && window.claude.downloads)) {
+    const ta = $("rep-md"), tg = $("rep-md-toggle");
+    if (ta) { ta.hidden = false; if (tg) tg.textContent = "Hide Markdown"; ta.focus(); ta.select(); }
+    toast("File save isn't available in this view — showing Markdown to copy instead", true);
+    return;
+  }
+  const sv = $("rep-md-save"); if (sv) sv.disabled = true;
+  try {
+    await window.claude.downloads.save({ filename: LAST_REPORT_FILENAME || "Email_Performance_Report.md", data: LAST_REPORT_MD });
+    toast("Report saved as " + (LAST_REPORT_FILENAME || "a .md file"));
+  } catch (err) {
+    const c = err && err.code;
+    const msg = c === "declined" ? "Save cancelled"
+      : c === "rate_limited" ? "A save prompt is already open — try again in a moment"
+      : c === "too_large" ? "Report is too large to save"
+      : c === "bad_request" ? "Couldn't save — bad filename or empty report"
+      : "File save isn't available in this view";
+    toast(msg, true);
+  } finally { if (sv) sv.disabled = false; }
+}
+async function runReport() {
+  const g = $("rep-gran").value, sel = $("rep-period");
+  const period = (REP_PERIODS[g] || []).find(p => p.key === sel.value); if (!period) return;
+  const out = $("rep-out"); out.className = ""; out.innerHTML = `<p class="skeleton">Generating ${esc(period.label)} report…</p>`;
+  const btn = $("rep-run"); btn.disabled = true;
+  try {
+    if (!SF) await resolveServers();
+    if (!SF) { out.innerHTML = `<div class="secmsg">Add Salesforce in claude.ai Settings → Connectors, then try again.</div>`; return; }
+    const rows = await sfReportCampaigns(SF, period.ps, period.ce);
+    let persona = null; try { persona = await sfPersona(SF, period.cs, period.ce); } catch (e) { persona = null; }
+    const rep = computeEmailReport(rows, period, persona);
+    if (rep.cur.n === 0) { out.innerHTML = `<div class="secmsg">No email campaigns with sends found in ${esc(period.label)} (${period.cs} → ${period.ce}).</div>`; return; }
+    LAST_REPORT_MD = reportToMarkdown(rep);
+    LAST_REPORT_FILENAME = "Email_Performance_Report_" + period.label.replace(/[^\w.-]+/g, "_") + ".md";
+    out.innerHTML = renderEmailReport(rep);
+    wireReportButtons();
+  } catch (err) { out.innerHTML = `<div class="secmsg">${errCopy(err)}</div>`; }
+  finally { btn.disabled = false; }
+}
+(function initReport() {
+  const g = $("rep-gran"); if (!g) return;
+  fillRepPeriods();
+  g.addEventListener("change", fillRepPeriods);
+  const run = $("rep-run"); if (run) run.addEventListener("click", runReport);
+})();
+
+// ---------- orchestration ----------
+let SF = null, AS = null, JR = null;
+function showPage(kind, htmlTitle, htmlBody) {
+  $("body").hidden = true;
+  $("pagestate").innerHTML = `<div class="pagemsg"><h3>${htmlTitle}</h3><div class="secmsg" style="border:0;background:transparent">${htmlBody}</div></div>`;
+}
+function setFresh(storedAt) {
+  const d = storedAt ? new Date(storedAt) : new Date();
+  const stale = storedAt ? " · cached" : "";
+  $("fresh").innerHTML = `Data as of <b>${d.toLocaleString()}</b>${stale}`;
+}
+
+async function resolveServers() {
+  const { servers } = await window.claude.mcp.listTools();
+  const find = (frag) => { const s = (servers || []).find(x => x.server.toLowerCase().includes(frag) && x.tools && x.tools.length); return s ? s.server : null; };
+  SF = find("salesforce"); AS = find("asana"); JR = find("atlassian") || find("jira");
+}
+
+async function refresh() {
+  const btn = $("refresh"); btn.disabled = true; btn.textContent = "Refreshing…";
+  try {
+    if (!window.claude || window.claude.mcp === undefined) {
+      showPage("nomcp", "Live data isn't available here",
+        "Open this dashboard inside claude.ai with the <b>Salesforce</b> and <b>Asana</b> connectors enabled. It reads live data with your own credentials — nothing is stored in the page.");
+      return;
+    }
+    await resolveServers();
+    if (!SF && !AS) { showPage("nomcp", "No connectors found", "Add the <b>Salesforce</b> and <b>Asana</b> connectors in claude.ai Settings → Connectors, then Refresh."); return; }
+
+    const now = new Date();
+    const curStart = ymd(addDays(now, -30)), priStart = ymd(addDays(now, -60)), todayS = ymd(now);
+    // fetch incomplete backlog + completions in the last 30 days in one paginated pull
+    const slaWinStart = ymd(addDays(now, -30));
+    const slaSinceIso = slaWinStart + "T00:00:00Z";
+
+    // fire the reads in parallel; each section degrades on its own failure
+    const asanaP = AS ? getAllTasks(AS, { project: PROJECT, completed_since: slaSinceIso, limit: 100, opt_fields: OPT }) : Promise.reject({ code: "server_not_connected", server: "Asana" });
+    const sfP = SF ? sfCampaigns(SF, priStart) : Promise.reject({ code: "server_not_connected", server: "Salesforce" });
+    // primary-source opps for the current 30d window (opp metrics no longer come from the campaign rollup)
+    const sfOppP = SF ? sfPrimaryOpps(SF, curStart, todayS) : Promise.reject({ code: "server_not_connected", server: "Salesforce" });
+
+    const [asanaR, sfR, sfOppR] = await Promise.allSettled([asanaP, sfP, sfOppP]);
+
+    const allTasks = asanaR.status === "fulfilled" ? asanaR.value.tasks : [];
+    const incomplete = allTasks.filter(t => !t.completed);
+    const completed = allTasks.filter(t => t.completed && t.completed_at && t.completed_at.slice(0, 10) >= slaWinStart);
+    let curAgg = aggEmail([]), priAgg = aggEmail([]), curRows = [];
+    if (sfR.status === "fulfilled") { const bk = bucketEmail(sfR.value, curStart, priStart); curAgg = bk.curAgg; priAgg = bk.priAgg; curRows = bk.curRows; }
+    const oppAgg = sfOppR.status === "fulfilled" ? aggOpps(sfOppR.value) : aggOpps([]);
+
+    // hard-fail only if BOTH systems failed
+    if (asanaR.status === "rejected" && sfR.status === "rejected") {
+      showPage("err", "Couldn't load data", `${errCopy(asanaR.reason)}<br>${errCopy(sfR.reason)}`);
+      return;
+    }
+
+    const b = computeBriefing(incomplete, completed, curAgg, priAgg, curRows, now, oppAgg);
+    if (asanaR.status === "rejected") b.dataGaps.unshift("<b>Asana unavailable:</b> " + errCopy(asanaR.reason) + " Intake tiles show blank.");
+    if (sfR.status === "rejected") b.dataGaps.unshift("<b>Salesforce unavailable:</b> " + errCopy(sfR.reason) + " Email tiles show blank.");
+
+    $("pagestate").innerHTML = ""; $("body").hidden = false;
+    b.triageSpeed = asanaR.status === "fulfilled" ? "loading" : null;
+    b.dataGaps.push(`<b>Triage speed</b> = weekday-hours from created → first "assigned" activity, over up to ${TRIAGE_CAP} recently-completed top-level tickets; self-assignment (creator = assigner) is shown separately; needs get_task_stories.`);
+    render(b);
+    // Triage speed — async: pull activity feeds for recently-completed top-level tickets, then repaint just that card.
+    if (asanaR.status === "fulfilled" && AS) {
+      const completedTop = completed.filter(t => !(t.parent && t.parent.gid) && !isScaffold(t.name))
+        .sort((a, z) => (z.completed_at || "").localeCompare(a.completed_at || ""));
+      if (completedTop.length) {
+        fetchStories(AS, completedTop)
+          .then(({ byGid, capHit }) => renderTriage(computeTriageSpeed(completedTop, byGid, capHit)))
+          .catch(() => renderTriage(null));
+      } else { renderTriage({ scored: 0 }); }
+    }
+    // Jira intake channel — independent async load (heaviest single pull; its own degrade path)
+    loadJira();
+    // surface a Salesforce failure inside the email card, not just a blank 0
+    if (sfR.status === "rejected") $("email").innerHTML = `<div class="secmsg">${errCopy(sfR.reason)}</div>`;
+    else if (curAgg.count === 0) $("email").insertAdjacentHTML("beforeend", `<p class="sub" style="margin-top:10px">No email campaigns with sends found in this window (Salesforce Campaigns where emails were delivered, last 30 days).</p>`);
+    if (asanaR.status === "rejected") $("workload").innerHTML = `<div class="secmsg">${errCopy(asanaR.reason)}</div>`;
+    setFresh(asanaR.status === "fulfilled" ? asanaR.value.storedAt : null);
+    // if the user has a non-default quarter selected, keep showing it after a refresh
+    const selEl = $("email-period");
+    if (selEl && selEl.value && selEl.value !== "last30") { const sp = PERIODS.find(x => x.key === selEl.value); if (sp) loadEmailPeriod(sp); }
+  } catch (err) {
+    showPage("err", "Couldn't load data", errCopy(err));
+  } finally {
+    btn.disabled = false; btn.textContent = "Refresh";
+  }
+}
+
+// ---------- Assign action (write: update_tasks, runs as the viewer) ----------
+function assignControl(gid) {
+  return `<select class="assign-sel"><option value="">assign…</option>${TEAM.map(m => `<option value="${m.gid}">${esc(m.name)}</option>`).join("")}</select>`;
+}
+function toast(msg, isErr) {
+  let t = $("toast"); if (!t) { t = document.createElement("div"); t.id = "toast"; document.body.appendChild(t); }
+  t.textContent = msg; t.className = "show" + (isErr ? " err" : "");
+  clearTimeout(toast._t); toast._t = setTimeout(() => { t.className = ""; }, 3200);
+}
+async function doAssign(taskGid, memberGid, memberName, cell) {
+  cell.innerHTML = `<span class="confirm-q">Assigning…</span>`;
+  try {
+    // Address the connector by its RESOLVED display name (AS), not the manifest prefix string —
+    // callTool takes the display name, which is why reads (they use AS) worked but this write didn't.
+    if (!AS) await resolveServers();
+    if (!AS) { cell.innerHTML = `<span class="assign-err">Asana connector not found — add it in claude.ai Settings → Connectors.</span> <button class="mini" data-act="reset">↺</button>`; toast("Assign failed", true); return; }
+    const r = await window.claude.mcp.callTool(AS, "update_tasks", { tasks: [{ task: taskGid, assignee: memberGid }] });
+    const p = (r && r.payload) || {};
+    // update_tasks returns { data:[…succeeded…], failed:[…], summary:"Updated N of M tasks." }
+    const failedArr = Array.isArray(p.failed) ? p.failed : [];
+    const okList = Array.isArray(p.data) ? p.data : (Array.isArray(p.succeeded) ? p.succeeded : []);
+    const ok = failedArr.length === 0 && (okList.some(t => t && t.gid === taskGid) || okList.length > 0 || /updated\s+1\s+of\s+1/i.test(String(p.summary || "")));
+    if (ok) {
+      cell.innerHTML = `<span class="assigned-ok">✓ ${esc(memberName)}</span>`; toast(`Assigned to ${memberName}`);
+    } else {
+      const f = failedArr[0]; const msg = (f && (f.errors ? [].concat(f.errors).join("; ") : (f.error || f.message))) || (p.summary || "update failed");
+      cell.innerHTML = `<span class="assign-err">${esc(msg)}</span> <button class="mini" data-act="reset">↺</button>`; toast("Assign failed", true);
+    }
+  } catch (err) {
+    const amb = err && (err.code === "server_unavailable" || err.code === "upstream_error" || err.code === "cancelled");
+    cell.innerHTML = `<span class="assign-err">${esc(errCopy(err))}${amb ? " — may have applied; Refresh to check" : ""}</span> <button class="mini" data-act="reset">↺</button>`;
+    toast("Assign failed", true);
+  }
+}
+function initActions() {
+  const ut = $("unassigned"); if (!ut || ut._wired) return; ut._wired = true;
+  ut.addEventListener("change", (e) => {
+    const s = e.target.closest && e.target.closest(".assign-sel"); if (!s || !s.value) return;
+    const cell = s.closest(".assign-cell"); const m = TEAM.find(x => x.gid === s.value); if (!cell || !m) return;
+    cell.innerHTML = `<span class="confirm-q">Assign to ${esc(m.name)}?</span> <button class="mini ok" data-act="confirm" data-gid="${m.gid}" data-name="${esc(m.name)}">Confirm</button> <button class="mini" data-act="cancel">Cancel</button>`;
+  });
+  ut.addEventListener("click", (e) => {
+    const btn = e.target.closest && e.target.closest("button[data-act]"); if (!btn) return;
+    const cell = btn.closest(".assign-cell"); if (!cell) return;
+    const act = btn.dataset.act, gid = cell.dataset.gid;
+    if (act === "cancel" || act === "reset") cell.innerHTML = assignControl(gid);
+    else if (act === "confirm") doAssign(gid, btn.dataset.gid, btn.dataset.name, cell);
+  });
+}
+initActions();
+initJiraActions();
+
+$("refresh").addEventListener("click", refresh);
+// quarter selector for the email card
+const PERIODS = buildPeriods(new Date());
+(function initPeriodSelect() {
+  const sel = $("email-period");
+  if (!sel) return;
+  sel.innerHTML = PERIODS.map(p => `<option value="${p.key}">${esc(p.label)}</option>`).join("");
+  sel.addEventListener("change", () => { const p = PERIODS.find(x => x.key === sel.value); if (p) loadEmailPeriod(p); });
+})();
+refresh();
+setInterval(() => { if (!document.hidden) refresh(); }, 10 * 60 * 1000);
+</script>

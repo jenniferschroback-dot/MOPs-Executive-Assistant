@@ -7,6 +7,8 @@ description: Turns a multi-send email request into dated Asana milestone sub-tas
 
 Turns each individual email send `intake-classification` extracted (date, subject, pre-header, banner/creative link, body/CTA) into a dated Asana milestone sub-task, matching the manual process Harish demoed live on 2026-07-13. This is what makes the "next week's emails" / "emails sent last week" view possible without anyone re-checking the calendar by hand.
 
+**Writes follow `.claude/rules/write-actions.md`.** Milestone sub-task creation is Class B; a multi-send request usually trips the 4+ bulk rule, so show the full preview (every send date and name) and take one approval for the batch, then report per-send results. Check the parent's existing sub-tasks by name before creating — re-running a request must not duplicate the calendar. Log each create in `decisions/actions.md`.
+
 ## Why this exists
 Harish's manual version of this (per the 2026-07-13 meeting): one sub-task per send date, `Project Type` = `Email`, converted to a **Milestone**, so it shows up in the Asana calendar view. He uses that calendar to (a) confirm the audience for one send doesn't collide with another send going to the same audience on the same day, and (b) walk stakeholders through what's shipping next week on the Thursday call. This skill exists so that scheduling doesn't depend on someone doing it by hand every time.
 

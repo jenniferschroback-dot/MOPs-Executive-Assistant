@@ -7,6 +7,8 @@ description: Classifies a raw MOPS intake form submission into structured ticket
 
 Turns an unstructured intake form submission into structured data ready to become an Asana task (and its sub-tasks), instead of MOPS reading and re-typing it by hand.
 
+**Writes follow `.claude/rules/write-actions.md`.** Task and sub-task creation is Class B (notifies followers): confirm before creating, and run the idempotency check first — read the parent's existing sub-tasks and skip name matches, so a re-run doesn't produce a duplicate set. Log every create in `decisions/actions.md`.
+
 ## Process
 
 1. **Read the raw submission** (pasted text, form export, or linked ticket).
@@ -21,14 +23,18 @@ Turns an unstructured intake form submission into structured data ready to becom
    - Once `Project Type` is known, run it through **`campaign-gate-check`** to get the yes/no/needs-human-input Salesforce Campaign gate — that skill is the source of truth for the gate table, not the "Creates SF Campaign?" column below.
 4. **For `Webinar Request` / `Event (+ SFDC Campaign)` requests, check for a promotional-email flag** — a yes/no answer to "do you require a promotional email as part of this request?" (confirmed pattern from the existing webinar landing-page form, see `decisions/log.md` 2026-07-13). If the raw submission doesn't state this explicitly, ask rather than assuming. This flag is the gate `sf-campaign-spec` uses to decide whether to create the companion Email Campaign alongside the Event/Webinar Campaign — no promotional email means just the one Campaign.
 5. **For any email-channel request (`Email(s) only | Nurture Sequences`, or the promotional-email add-on above), check whether it covers more than one send.** Stakeholders share multi-email requests inconsistently — as separate ticket comments per email, as a linked doc with one row per send, or as a single ticket — so read the whole submission (including comments/linked docs) before assuming there's only one email. For each send, extract: send date, subject line, pre-header, banner/creative link, and body/CTA copy. If any of these are missing for a send, flag the gap rather than inventing copy.
-6. **Expand into sub-tasks** using the mapping below. For multi-send email requests, create one dated sub-task per email (see `email-send-calendar` skill for how these become milestone tasks on the shared email calendar).
+6. **Expand into sub-tasks** using **`references/sops/mops-task-subtask-catalog.md`** — the per-type sub-task sets extracted from live completed Asana tickets. That file is the source of truth for *which sub-tasks to create*; the table below is only the SF-campaign gate quick-reference. Respect its evidence tiers: auto-expand only the `Webinar Request` template and the formulaic types, propose-don't-assume for `Event`, and **create nothing** for leaf types. Sub-task `resource_subtype` matters — email sends must be `milestone`, approvals `approval`. For multi-send email requests, create one dated sub-task per email (see `email-send-calendar` skill for how these become milestone tasks on the shared email calendar).
 7. **Output a structured summary** (bullet points) before creating anything in Asana — get confirmation first, then use the Asana MCP to create the parent task and sub-tasks.
 8. **If `campaign-gate-check` returns `no`,** don't route the ticket through `campaign-naming`/`sf-campaign-spec` — instead post a short alert to the MOPS team Slack channel flagging the new task so a human decides what (if anything) to do with it. This is a proactive heads-up, not a note on the Asana ticket itself — per existing guidance, still don't comment "no campaign needed" on the ticket.
    - **If `campaign-gate-check` returns `needs-human-input`,** don't guess and don't create sub-tasks — post to Slack flagging the ambiguous `Project Type`/gate result for a human to resolve, then update `campaign-gate-check/SKILL.md`'s table once confirmed.
 
-## Known request types → sub-tasks
+## Known request types → SF campaign gate
+
+> **Sub-task expansion moved out of this table.** See `references/sops/mops-task-subtask-catalog.md` (built 2026-08-03 from 2,664 completed tickets) for the actual per-type sub-task sets, including the confirmed 20-step Webinar template, the separate 16-step Event template, and the workshop variant. The "Notes / confirmed sub-tasks" column below is retained for gate context only and is **not** a complete sub-task list.
 
 Confirmed 2026-07-11 by cross-referencing live Asana `[MOPs] Intake` tasks (`Project Type` custom field, gid `1206591746930193`) against actual Salesforce Campaign records — see `decisions/log.md`. This field is the classification vocabulary; use its exact values, don't invent new ones.
+
+**Two corrections verified live 2026-08-03** (see catalog §7): the field has **17** options, not the 15 below — `6Sense CE` (gid `1210870069976681`, disabled) is missing. And `UTM(s) (+ SFDC Campaign)` is **confirmed disabled**, settling the open question in that row.
 
 **Whether the request needs `sf-campaign-spec` at all is decided by `campaign-gate-check`, not this table.** The "Creates SF Campaign?" column below is kept only as a quick-reference match to that skill's gate table — if the two ever disagree, `campaign-gate-check/SKILL.md` wins; update this column to match rather than the other way around.
 

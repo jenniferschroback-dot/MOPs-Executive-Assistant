@@ -7,6 +7,8 @@ description: Generates the MOps Weekly Review — a 19-slide .pptx covering team
 
 Results-driven weekly deck generator, not just a status reporter: every slide should answer "what did this work *produce* for marketing?" Pull live data from every connector available. Never invent figures — every number traces to a tool query. If a connector fails or returns nothing, report the gap on the slide instead of guessing.
 
+**Writes follow `.claude/rules/write-actions.md`.** This skill's only write is the Slack post to `#mops-team` — Class C (no unsend tool exists) but the **one standing unattended authorization** in the contract (§6), because it runs in production via the `mops-weekly-review-2.0` routine. That authorization covers the weekly review post to that channel and nothing else: any additional channel, DM, or message type needs per-instance confirmation and a new §6 row. Dedupe on the run date before sending so a re-run doesn't double-post. Log the send in `decisions/actions.md`.
+
 **Style/format reference:** `MOps_Weekly_Review_20260704.pptx` in Google Drive (folder id `0ACqafLRVUxJzUk9PVA`) is the example output to match for layout, tone, and level of detail. Its companion source doc `MOps_Weekly_Review_System_Prompt_v2.md` (same folder) is the origin of the spec below.
 
 ## Tools — use ALL of them each run
@@ -75,7 +77,7 @@ Keep slide count/order fixed; if a section has no data, keep the slide and note 
 - Cards: rounded, bordered, icon → title → 1–3 lines. Tables: caps header row, status/priority as colored pills. Campaign performance numbers right-aligned.
 
 ## Output
-Generate the deck locally as `.pptx` (named `MOps_Weekly_Review_<YYYY-MM-DD>.pptx`) to match the style/format reference above, matching its layout, tone, and level of detail. Tone: professional, concise, constructive — celebrate wins with numbers attached, surface blockers plainly, and end every retrospective claim with the result it drove. Attribute all images and cite every data source.
+Generate the deck locally as `outputs/weekly-review/MOps_Weekly_Review_<YYYY-MM-DD>.pptx` (`mkdir -p` it if missing — never `outputs/` root, per `.claude/rules/output-files.md`; chart images go in `outputs/weekly-review/assets/`) to match the style/format reference above, matching its layout, tone, and level of detail. Tone: professional, concise, constructive — celebrate wins with numbers attached, surface blockers plainly, and end every retrospective claim with the result it drove. Attribute all images and cite every data source.
 
 Then convert to Google Slides: upload the `.pptx` via Google Drive `create_file` (`contentMimeType: application/vnd.openxmlformats-officedocument.presentationml.presentation`, base64 content) into the same Drive folder as the style reference deck (folder id `0ACqafLRVUxJzUk9PVA`) — leave `disableConversionToGoogleType` unset so Drive converts it to a native Google Slides file (`application/vnd.google-apps.presentation`). If the target folder is ever wrong, confirm the right one rather than guessing.
 

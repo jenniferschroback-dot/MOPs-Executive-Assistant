@@ -11,6 +11,8 @@ Creates the Salesforce side of a request: the campaign record and its member sta
 
 **Known limitation:** the connected Salesforce MCP is currently read/query only (see `tools/available-tools.md`) — there is no create/update tool available yet. Propose the full spec as normal, but flag that the actual create step needs to happen manually (or via a write-capable connection) until that changes.
 
+Per `.claude/rules/write-actions.md` §9, this is a **spec-plus-handoff**, not a write: state plainly that the create step is manual and why, give the exact values a human needs to enter, and never report the campaign as created. Nothing from this skill goes in `decisions/actions.md` — no write is performed.
+
 ## Process
 
 1. Take the classified + named request (from `intake-classification` and `campaign-naming`).

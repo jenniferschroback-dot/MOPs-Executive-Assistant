@@ -5,7 +5,8 @@ Scheduled cloud agent (Claude Code routine) that runs the `MOps-weekly-report` s
 - **Routine ID:** `trig_01Ssw1JXB8TKzF6dd2dt1kJW`
 - **Link:** https://claude.ai/code/routines/trig_01Ssw1JXB8TKzF6dd2dt1kJW
 - **Schedule:** every Thursday, 7:00 AM Pacific (`0 14 * * 4` UTC). Fixed UTC cron — drifts to ~6:00 AM PT once DST ends (~Nov); needs a manual nudge back at that point.
-- **Repo:** [github.com/forkanelebdi-ACQ/MOPs-Weekly-Review](https://github.com/forkanelebdi-ACQ/MOPs-Weekly-Review) (`main`) — separate repo created 2026-07-14 specifically so the cloud agent has something to clone; mirrors this project's `.claude/skills/MOps-weekly-report/SKILL.md`.
+- **Repo:** [github.com/forkanelebdi-ACQ/MOps-Executive-Assistant](https://github.com/forkanelebdi-ACQ/MOps-Executive-Assistant) (`main`) — created 2026-07-14 so the cloud agent had something to clone, and **renamed 2026-08-06 from `MOPs-Weekly-Review`**. It is no longer a weekly-review-only mirror: as of 2026-08-06 it holds this entire project, so the skill the routine clones is the same file this repo edits, not a copy that can drift.
+  - ⚠️ **GitHub redirects the old URL, so the routine keeps working** — but the redirect is a courtesy, not a guarantee. If anyone creates a new repo named `MOPs-Weekly-Review` under this account, the redirect breaks and the routine starts cloning the wrong thing. Update the routine's repo config to the new name rather than relying on it.
 - **Environment:** "Weekly Review Report" (`env_0135gKmDW697XShahAoE82wx`)
 - **Model:** claude-sonnet-5
 - **MCP connections:** Salesforce, Asana, Atlassian (Jira), Google Drive, Slack

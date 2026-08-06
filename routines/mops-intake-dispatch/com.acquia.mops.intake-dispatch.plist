@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  MOPS Intake Dispatch — daily triage digest. Local launchd agent.
+
+  LOADED 2026-08-03. Runs 06:00 local (America/Los_Angeles) Monday-Friday and
+  reports everything that arrived since the previous run.
+
+  Stage 1 = propose only. This job performs NO writes to Asana, Salesforce,
+  Jira, Slack, or Sheets. It reads the Asana intake board and writes one local
+  markdown file to outputs/intake/. No write-actions.md §6 authorization is required.
+
+  Install:   cp this file to ~/Library/LaunchAgents/ and run
+             launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.acquia.mops.intake-dispatch.plist
+  Status:    launchctl print gui/$(id -u)/com.acquia.mops.intake-dispatch
+  Run now:   launchctl kickstart -p gui/$(id -u)/com.acquia.mops.intake-dispatch
+  Remove:    launchctl bootout gui/$(id -u)/com.acquia.mops.intake-dispatch
+
+  Scope is driven by state.json (watermark + floor_date) in this folder, NOT by
+  an argument — so a missed run widens the next window instead of losing a day.
+  A closed laptop delays rather than skips: StartCalendarInterval re-fires a
+  missed job once on wake.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.acquia.mops.intake-dispatch</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/zsh</string>
+        <string>-lc</string>
+        <string>cd /Users/forkane.lebdi/mops-executive-assistant &amp;&amp; exec claude -p "/intake-dispatch" &gt;&gt; "$HOME/Library/Logs/intake-dispatch.log" 2&gt;&amp;1</string>
+    </array>
+
+    <!--
+      06:00 local, Monday-Friday. The Mac is set to America/Los_Angeles and
+      launchd StartCalendarInterval uses system local time, so this is 07:00 LA
+      and follows DST automatically. If the machine's timezone changes, this
+      time moves with it — that is the thing to re-check.
+
+      Weekdays only, unlike lead-routing-audit: intake submission is a
+      business-hours activity, and a weekend digest would almost always be
+      empty. Monday's run covers the weekend automatically because the window
+      is watermark-driven, not "yesterday"-driven.
+
+      To add weekends, add Weekday 0 and 6 entries.
+    -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>6</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>6</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>6</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>6</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>6</integer><key>Minute</key><integer>0</integer></dict>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/forkane.lebdi/mops-executive-assistant</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/forkane.lebdi/Library/Logs/intake-dispatch.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/forkane.lebdi/Library/Logs/intake-dispatch.log</string>
+
+    <!--
+      The Asana MCP connection is authenticated in Forkan's logged-in session,
+      so the job must not run without one.
+    -->
+    <key>LimitLoadToSessionType</key>
+    <string>Aqua</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Daily lead-routing QA — local launchd agent.
+
+  LOADED 2026-08-03. Runs 05:30 local (America/Los_Angeles) every morning and
+  audits the previous day. Unattended appends to the QA Sheet are authorized by
+  .claude/rules/write-actions.md §6.
+
+  Install:   cp this file to ~/Library/LaunchAgents/ and run
+             launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.acquia.mops.lead-routing-audit.plist
+  Status:    launchctl print gui/$(id -u)/com.acquia.mops.lead-routing-audit
+  Run now:   launchctl kickstart -p gui/$(id -u)/com.acquia.mops.lead-routing-audit
+  Remove:    launchctl bootout gui/$(id -u)/com.acquia.mops.lead-routing-audit
+
+  StartCalendarInterval re-fires a missed job once on wake, so a closed laptop
+  delays the run rather than skipping it. A multi-day gap shows up as missing
+  Run_Date rows on the Daily Summary tab, which is the intended failure mode:
+  visible, not silent.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.acquia.mops.lead-routing-audit</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/zsh</string>
+        <string>-lc</string>
+        <string>cd /Users/forkane.lebdi/mops-executive-assistant &amp;&amp; exec claude -p "/lead-routing-audit yesterday" &gt;&gt; "$HOME/Library/Logs/lead-routing-audit.log" 2&gt;&amp;1</string>
+    </array>
+
+    <!--
+      05:30 every morning, local time. The Mac is set to America/Los_Angeles,
+      and launchd StartCalendarInterval uses system local time, so this is
+      05:30 LA and it follows DST automatically. If the machine's timezone ever
+      changes, this time moves with it — that is the thing to re-check.
+
+      Scope is "yesterday", not "today": at 05:30 the current day is nearly
+      empty, so a morning review needs the previous complete day.
+
+      All seven days on purpose. Weekend volume is low but non-zero, and an
+      unbroken Run_Date series means a missing date is unambiguously a missed
+      run rather than "was that a weekday?". To go weekdays-only, delete the
+      Weekday 0 and 6 entries.
+    -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Weekday</key><integer>0</integer><key>Hour</key><integer>5</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>5</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>5</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>5</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>5</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>5</integer><key>Minute</key><integer>30</integer></dict>
+        <dict><key>Weekday</key><integer>6</integer><key>Hour</key><integer>5</integer><key>Minute</key><integer>30</integer></dict>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/forkane.lebdi/mops-executive-assistant</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/forkane.lebdi/Library/Logs/lead-routing-audit.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/forkane.lebdi/Library/Logs/lead-routing-audit.log</string>
+
+    <!-- gws reads Forkan's login keyring; the job must not run without a session. -->
+    <key>LimitLoadToSessionType</key>
+    <string>Aqua</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

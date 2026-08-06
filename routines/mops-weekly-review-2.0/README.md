@@ -13,8 +13,13 @@ Scheduled cloud agent (Claude Code routine) that runs the `MOps-weekly-report` s
 ## What it does
 Follows `.claude/skills/MOps-weekly-report/SKILL.md` in the routine's repo: pulls live Asana/Salesforce/Jira data, builds the 19-slide deck, converts it to Google Slides (Drive folder `0ACqafLRVUxJzUk9PVA`), and posts the link + headline summary to **#mops-team** in Slack.
 
+## Write contract (required dependency)
+This routine performs a write (the Slack post), so its repo **must ship a copy of `.claude/rules/write-actions.md`** — cloud routines clone skill folders and do **not** inherit `.claude/rules/` from this project. Without it the routine runs unguarded.
+
+The Slack post to `#mops-team` is the contract's **one standing unattended authorization** (§6). It covers the weekly review post to that channel and nothing else. Dedupe on the run date before sending so a retried run doesn't double-post, and append the send to `decisions/actions.md`.
+
 ## Keeping in sync
-The routine's repo is a standalone push target, not a live mirror — if `MOps-weekly-report` (or its context dependencies) changes in this project, re-push to `MOps-Weekly-Review` or the routine will run against a stale skill version.
+The routine's repo is a standalone push target, not a live mirror — if `MOps-weekly-report`, `.claude/rules/write-actions.md`, or its context dependencies change in this project, re-push to `MOps-Weekly-Review` or the routine will run against a stale version.
 
 ## Created
 2026-07-14, per Forkan's request to automate the weekly deck + Slack delivery instead of running it manually each week.

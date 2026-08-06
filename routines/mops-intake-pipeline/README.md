@@ -24,8 +24,15 @@ Two hard constraints, both surfaced during setup (2026-07-15):
    - **`yes`** — creates sub-tasks (`intake-classification`), proposes a name (`campaign-naming`), then proposes the full Salesforce Campaign spec **as a comment on that Asana ticket** (`sf-campaign-spec`) — since there's no SF write path, a human executes it manually.
 4. Runs `intake-tracking`'s status logic across Asana/Jira/Salesforce and posts one consolidated summary to **#mops-team** in Slack: tickets processed this run + overall pipeline health.
 
+## Write contract (required dependency)
+This routine creates Asana tasks/sub-tasks and posts to Slack, so its repo **must ship a copy of `.claude/rules/write-actions.md`** — cloud routines clone skill folders and do **not** inherit `.claude/rules/`. Without it the routine runs unguarded.
+
+Two contract items to settle **before** this is re-enabled:
+- The Slack summary to `#mops-team` is **not** covered by the contract's standing authorization (§6), which is scoped to the weekly review post only. This routine needs its own §6 row, approved and logged in `decisions/log.md`, or it can't send unattended.
+- Unattended task creation must run the idempotency check (§4) — match existing sub-tasks by name before creating — or a re-fired run duplicates the whole set. This is the most likely failure mode for a scheduled pipeline.
+
 ## Keeping in sync
-Same caveat as the weekly-review routine: this repo is a standalone push target, not a live mirror. Re-push after any change to the five skills above or their supporting context/decision files, or the routine runs against a stale version.
+Same caveat as the weekly-review routine: this repo is a standalone push target, not a live mirror. Re-push after any change to the five skills above, `.claude/rules/write-actions.md`, or their supporting context/decision files, or the routine runs against a stale version.
 
 ## Created
 2026-07-15, per Forkan's request to chain the four intake-to-launch skills into one pipeline, with a dedicated `campaign-gate-check` skill split out per his request so the Salesforce-Campaign gate has one home instead of being duplicated across skills.

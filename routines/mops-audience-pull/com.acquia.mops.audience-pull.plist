@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  MOPS Audience Pull — daily sweep of NEW Audiences intake tickets. Local launchd agent.
+
+  Runs 07:00 local (America/Los_Angeles) every day and reports every
+  audience-shaped ticket that arrived since the previous run.
+
+  Propose-first by design. This job performs NO writes to Asana, Salesforce,
+  Jira, Slack, or Sheets. It reads the Asana intake board and Salesforce, and
+  writes local files to outputs/audiences/ only. No write-actions.md §6 authorization is
+  required. Salesforce is query-only regardless (§9).
+
+  Install:   cp this file to ~/Library/LaunchAgents/ and run
+             launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.acquia.mops.audience-pull.plist
+  Status:    launchctl print gui/$(id -u)/com.acquia.mops.audience-pull
+  Run now:   launchctl kickstart -p gui/$(id -u)/com.acquia.mops.audience-pull
+  Remove:    launchctl bootout gui/$(id -u)/com.acquia.mops.audience-pull
+
+  Scope is driven by state.json (watermark + floor_date) in this folder, NOT by
+  an argument — so a missed run widens the next window instead of losing a day.
+  A closed laptop delays rather than skips: StartCalendarInterval re-fires a
+  missed job once on wake.
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.acquia.mops.audience-pull</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/zsh</string>
+        <string>-lc</string>
+        <string>cd /Users/forkane.lebdi/mops-executive-assistant &amp;&amp; exec claude -p "/audience-pull --sweep" &gt;&gt; "$HOME/Library/Logs/audience-pull.log" 2&gt;&amp;1</string>
+    </array>
+
+    <!--
+      07:00 local, all seven days.
+
+      The Mac is set to America/Los_Angeles and launchd StartCalendarInterval
+      uses system local time, so this is 07:00 PT and follows DST automatically.
+      If the machine's timezone changes, this time moves with it — that is the
+      thing to re-check.
+
+      07:00 also keeps this clear of the 06:00 slot, where
+      com.acquia.mops.intake-dispatch fires on weekdays. Both spawn a
+      `claude -p` process and share the Asana MCP connection, so they should
+      not be scheduled on the same minute.
+
+      All seven days, unlike intake-dispatch's weekdays-only: the window is
+      watermark-driven, so a weekend run is cheap and an unbroken daily series
+      makes a missing digest unambiguously a missed run. To drop weekends,
+      delete the Weekday 0 and 6 entries.
+    -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict><key>Weekday</key><integer>0</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>1</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>2</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>3</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>4</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>5</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+        <dict><key>Weekday</key><integer>6</integer><key>Hour</key><integer>7</integer><key>Minute</key><integer>0</integer></dict>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/forkane.lebdi/mops-executive-assistant</string>
+
+    <key>StandardOutPath</key>
+    <string>/Users/forkane.lebdi/Library/Logs/audience-pull.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/forkane.lebdi/Library/Logs/audience-pull.log</string>
+
+    <!--
+      The Asana and Salesforce MCP connections are authenticated in Forkan's
+      logged-in session, so the job must not run without one.
+    -->
+    <key>LimitLoadToSessionType</key>
+    <string>Aqua</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

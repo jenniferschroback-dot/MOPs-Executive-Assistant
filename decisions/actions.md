@@ -1,0 +1,67 @@
+# Action Log
+
+Append-only record of every write the assistant performs against a live system (Asana, Jira, Confluence, Slack, Drive). The contract governing these writes is `.claude/rules/write-actions.md`.
+
+**Never edit or delete a past entry** — only append to the bottom. This is the audit trail; rewriting it defeats the purpose.
+
+This file is for **things done to live records**. Design decisions go in `decisions/log.md`. Don't mix them.
+
+## Format
+
+One line per write **attempt**, newest at the bottom:
+
+```
+[YYYY-MM-DD HH:MM PT] ACTOR: <who asked> | ENTRY: chat | skill:<name> | dashboard | routine:<name> | VERB: <system>.<verb> | CLASS: A|B|C | TARGET: <id — name> | RESULT: ok|skipped|failed|ambiguous | NOTE: <what changed, or the error>
+```
+
+**RESULT values**
+- `ok` — the tool returned its own success signal (not merely "no error")
+- `skipped` — the idempotency check (§4) found it already done; no write was sent
+- `failed` — definitely did not apply; safe to fix and re-issue
+- `ambiguous` — may have applied; needs a read-back before any further action. Never re-fired blind.
+
+**Batches** get one line per record, not one line per batch — per-record results are the point.
+
+---
+
+[2026-08-03 10:14 PT] ACTOR: Forkan | ENTRY: chat | VERB: sheets.spreadsheets.create | CLASS: A | TARGET: 1gFu34xeJJ2Jrk1p9jtvgkzp_WtspHNyCGZ1zorbNNOA — "Lead Routing QA — Daily (MOPs + RevOps)" | RESULT: ok | NOTE: Created the routing QA sheet with 4 tabs (Daily Summary / Detail / Config Linter / Reference). Private on creation. First gws call returned its JSON behind a "Using keyring backend" preamble line, which broke my parse — read Drive back before retrying per §5, confirmed exactly one file created, no duplicate.
+
+[2026-08-03 10:16 PT] ACTOR: Forkan | ENTRY: chat | VERB: sheets.values.batchUpdate | CLASS: A | TARGET: same sheet — header rows on all 4 tabs | RESULT: ok | NOTE: 55 cells. Detail header is A:Z; the skill only ever writes A:X.
+
+[2026-08-03 10:31 PT] ACTOR: Forkan | ENTRY: chat | VERB: sheets.values.batchUpdate | CLASS: A | TARGET: same sheet — Reference!A2:F40, 'Config Linter'!A2:I24 | RESULT: ok | NOTE: Seeded 39 Reference rows (RR pool map, bucket definitions, thresholds, Phase 0 baselines, 10 open questions for Lucio) and 23 Config Linter findings across the 12 checks.
+
+[2026-08-03 10:34 PT] ACTOR: Forkan | ENTRY: chat | VERB: sheets.spreadsheets.batchUpdate | CLASS: A | TARGET: same sheet — formatting | RESULT: ok | NOTE: 23 requests: bold/dark header rows, frozen panes, basic filters, per-bucket and per-severity conditional formatting, reviewer-owned columns Y:Z tinted, column widths.
+
+[2026-08-03 10:41 PT] ACTOR: Forkan | ENTRY: chat | VERB: sheets.values.append | CLASS: A | TARGET: same sheet — Detail!A2:X12 | RESULT: ok | NOTE: Verification run for report day 2026-07-31. 11 rows = 8 bucket-4 (Partner Deal Registration) + 2 bucket-1 + 1 bucket-2. Idempotency check read Detail!A2:D first and found 0 existing keys for that date.
+
+[2026-08-03 10:41 PT] ACTOR: Forkan | ENTRY: chat | VERB: sheets.values.append | CLASS: A | TARGET: same sheet — 'Daily Summary'!A2:N2 | RESULT: ok | NOTE: One summary row for 2026-07-31.
+
+[2026-08-03 10:44 PT] ACTOR: Forkan | ENTRY: chat | VERB: sheets.values.update | CLASS: A | TARGET: same sheet — Detail!Y12:Z12 | RESULT: ok | NOTE: Wrote a SIMULATED reviewer annotation to test that human-owned columns survive an append. The range was empty, so no human work was at risk — but it is the reviewer-owned range, and writing plausible-looking fake annotation into a shared QA sheet is not something to repeat. Cleared immediately after the test (see below). Should have used a scratch copy.
+
+[2026-08-03 10:45 PT] ACTOR: Forkan | ENTRY: chat | VERB: sheets.values.append | CLASS: A | TARGET: same sheet — Detail + Daily Summary | RESULT: skipped | NOTE: Deliberate second run of the same report day to prove §4 idempotency. 2026-07-31 already present on Daily Summary -> whole run was a no-op. Zero rows appended, zero duplicates, reviewer annotation intact.
+
+[2026-08-03 10:47 PT] ACTOR: Forkan | ENTRY: chat | VERB: sheets.values.clear | CLASS: A | TARGET: same sheet — Detail!Y12:Z12 | RESULT: ok | NOTE: Removed the simulated reviewer annotation from the test above. Only the machine-written A:X columns remain populated; the reviewer columns are empty, as they should be before Lucio sees the sheet.
+
+[2026-08-03 11:22 PT] ACTOR: Forkan | ENTRY: chat | VERB: sheets.values.append | CLASS: A | TARGET: 1gFu34xeJJ2Jrk1p9jtvgkzp_WtspHNyCGZ1zorbNNOA — Reference!A41:F55 | RESULT: ok | NOTE: Added a 15-row SEVERITY section documenting the full High/Medium/Low ladder, including the newly pinned bucket-3 mappings. Append-only, so the existing 39 rows were untouched. Re-ran to confirm the guard: second run detected the section and no-op'd.
+
+[2026-08-03 11:12 PT] ACTOR: Forkan | ENTRY: chat (`/lead-routing-audit yesterday`) | VERB: sheets.values.append | CLASS: A | TARGET: 1gFu34xeJJ2Jrk1p9jtvgkzp_WtspHNyCGZ1zorbNNOA — Detail!A13:X15 | RESULT: ok | NOTE: Report day 2026-08-02 (Sunday). 3 rows, all bucket 1. Idempotency check read 'Daily Summary'!A:C and Detail!A:D first — only 2026-07-31 present, so 0 existing keys for this date. 72 cells; Y:Z untouched.
+
+[2026-08-03 11:12 PT] ACTOR: Forkan | ENTRY: chat (`/lead-routing-audit yesterday`) | VERB: sheets.values.append | CLASS: A | TARGET: same sheet — 'Daily Summary'!A3:N3 | RESULT: ok | NOTE: One summary row for 2026-08-02. 3 in scope / 3 bucket-1 / 0 High / 0 Medium. Status COMPLETE — no query failed, so no PARTIAL marker.
+
+[2026-08-03 11:12 PT] ACTOR: Forkan | ENTRY: chat (`/lead-routing-audit yesterday`) | VERB: sheets.values.update ('Config Linter') | CLASS: A | TARGET: same sheet — 'Config Linter'!A:I | RESULT: skipped | NOTE: Rule table read live and byte-identical to the 2026-08-03 calibration (43 active; orders 46/525/1590/1800 still point at deactivated users, 783 still Region__c='Americas', 525/601/1825 still carry Account_Type__c, 1401/2200 still country-restricted). Last_Checked was already stamped 2026-08-03, so re-writing it would have changed nothing. Linter is a weekly pass, not daily.
+
+[2026-08-04 05:44 PT] ACTOR: Forkan | ENTRY: chat (`/lead-routing-audit yesterday`) | VERB: sheets.values.append | CLASS: A | TARGET: 1gFu34xeJJ2Jrk1p9jtvgkzp_WtspHNyCGZ1zorbNNOA — Detail!A16:X44 | RESULT: ok | NOTE: Report day 2026-08-03. 29 rows (17 bucket-1 / 1 bucket-2 / 7 bucket-3 / 4 bucket-4; 8 High, 21 Low). Idempotency check read Detail!A:D and 'Daily Summary'!A:N first — only 2026-07-31 and 2026-08-02 present, so 0 existing keys for this date. 696 cells, 24 columns; Y:Z untouched and the 14 prior rows verified intact after the write.
+
+[2026-08-04 05:44 PT] ACTOR: Forkan | ENTRY: chat (`/lead-routing-audit yesterday`) | VERB: sheets.values.append | CLASS: A | TARGET: same sheet — 'Daily Summary'!A4:N4 | RESULT: ok | NOTE: One summary row for 2026-08-03. 29 in scope (vs ~11/day baseline) — inflated by a 10-lead EMEA bulk import. Status COMPLETE: the LeadHistory semi-join timed out but the documented explicit-Id batching fallback gave full coverage, so no bucket was left unmeasured and no PARTIAL marker was set.
+
+[2026-08-04 05:44 PT] ACTOR: Forkan | ENTRY: chat (`/lead-routing-audit yesterday`) | VERB: sheets.values.update | CLASS: A | TARGET: same sheet — 'Config Linter'!I2:I24 | RESULT: ok | NOTE: Rule table read live and unchanged from the 2026-08-03 calibration (43 active; same 23 findings, none resolved), so only Last_Checked was stamped 2026-08-04 — 23 cells in the machine-owned column. First 'Config Linter' write of this routine; note the tab is 9 columns (A:I), so Last_Checked is column I, not J as an earlier reading assumed. Findings themselves were not rewritten.
+
+[2026-08-04 PT] ACTOR: Forkan | ENTRY: chat | VERB: drive.files.create | CLASS: A | TARGET: Google Doc `1avndodviWe9tTGUCORCz0E3fUEGJM4vzy0YIgCybT7I` — "Lead Routing QA Sheet — How to Read It (MOps + RevOps)" | RESULT: ok | NOTE: Plain-language walkthrough of the Lead Routing QA sheet for Jennifer — every tab and every column of Daily Summary (14 cols), Detail (26 cols, incl. the human-owned Y:Z), Config Linter (9 cols) and Reference (6 cols/7 sections), plus the bucket/severity model, full flag glossary, the config-bug findings, and the honest limits. Column names and sample values read live from the sheet, not from the skill docs. Created private in Forkan's Drive — sharing with Jennifer is a human action, not performed here. Idempotency: Drive searched for "Lead Routing QA" first, only the spreadsheet existed.
+
+[2026-08-04 PT] ACTOR: Forkan | ENTRY: chat | VERB: drive.files.update | CLASS: A | TARGET: Google Doc `1I6yKnJ15Ry5-oC9YI4LytnpkjoRnMi9Nb3ihqP8ofqo` — "Audience Pull Skill" | RESULT: ok | NOTE: Copied `.claude/skills/audience-pull/SKILL.md` into a Google Doc, full content preserved (frontmatter, all 7 steps, both field tables, flag table, engagement coverage table, worked example, 5 known gaps). Idempotency (§4): searched Drive first and found this doc already existed, owned by Forkan, created 21:18 UTC same day — exported it and confirmed it was EMPTY (3 bytes, UTF-8 BOM only), so filled it rather than creating a duplicate. Nothing was overwritten. Doc is private in Forkan's Drive; no sharing performed.
+
+[2026-08-06 06:08 PT] ACTOR: Forkan | ENTRY: chat (`/lead-routing-audit yesterday`) | VERB: sheets.values.append | CLASS: A | TARGET: 1gFu34xeJJ2Jrk1p9jtvgkzp_WtspHNyCGZ1zorbNNOA — Detail!A45:X64 | RESULT: ok | NOTE: Report day 2026-08-05. 20 rows (9 bucket-1 / 0 bucket-2 / 2 bucket-3 / 9 bucket-4; 2 High, 18 Low). Idempotency check read Detail!A:D and 'Daily Summary'!A:C first — 2026-07-31, 2026-08-02 and 2026-08-03 present, 0 existing keys for 2026-08-05. 480 cells, 24 columns; Y:Z confirmed still header-only after the write and the 43 prior data rows verified intact (11+3+29+20=63).
+
+[2026-08-06 06:08 PT] ACTOR: Forkan | ENTRY: chat (`/lead-routing-audit yesterday`) | VERB: sheets.values.append | CLASS: A | TARGET: same sheet — 'Daily Summary'!A5:N5 | RESULT: ok | NOTE: One summary row for 2026-08-05. 20 in scope vs the ~11/day baseline (9 Partner Deal Registration leads in one afternoon). Status COMPLETE — no query failed. Run_Note records the rule-table revision and the new inactive-user mechanic.
+
+[2026-08-06 06:08 PT] ACTOR: Forkan | ENTRY: chat (`/lead-routing-audit yesterday`) | VERB: sheets.values.update | CLASS: A | TARGET: same sheet — 'Config Linter'!A2:I26 | RESULT: ok | NOTE: Full linter rewrite, not a Last_Checked restamp — the live rule table CHANGED (47 active, was 43). 25 rows (was 23): 3 marked RESOLVED (525 checks 3 and 5, order 70 check 10), check 4 narrowed to the two remaining gaps after the EMEA fix, check 1 escalated with live evidence, check 12 grown from 1 to 3 hits (new rules 51/53 copied order 48's inert User__c). 225 cells in the machine-owned A:I range. No reviewer-owned range touched — this tab has none.

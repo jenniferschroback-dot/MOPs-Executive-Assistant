@@ -2,3 +2,26 @@
 CLAUDE.local.md
 .claude/settings.local.json
 node_modules/
+
+# Personal data — audience pulls contain real names, work emails, employers and
+# job titles. Never commit them; git history is not erasable in any practical
+# sense, which would defeat a GDPR deletion request. See .claude/skills/audience-pull/
+# and .claude/rules/output-files.md §6 (outputs/ is one subfolder per subject, so
+# these patterns must match at any depth).
+outputs/**/*.csv
+outputs/audiences/*.md
+
+# macOS junk
+.DS_Store
+
+# Routine watermark state — rewritten on every run, so committing it dirties the
+# tree daily. The required shape (floor_date + last_run_utc) is documented in each
+# routine's README; recreate it there rather than restoring from git.
+routines/*/state.json
+
+# graphify regenerable cache (the graph artifacts themselves are committed)
+graphify-out/cache/
+
+# `gws ... export` drops its payload in the working directory
+download.html
+download.txt

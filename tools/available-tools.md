@@ -1,6 +1,6 @@
 # Available Tools
 
-_Last updated: 2026-07-08_
+_Last updated: 2026-08-03_
 
 What's actually reachable in a Claude Code session right now, by MCP connection. This is a capability reference — see `.claude/skills/` for how these get used in an actual workflow.
 
@@ -23,6 +23,16 @@ Read channels, threads, files, and user profiles; search channels/users/messages
 
 ### Google Drive
 Search and list files, read/download file content, get file metadata and permissions, create and copy files.
+**Cannot append to or update an existing file** — `create_file` only creates. It also requires the whole file inline as base64, which stalls on anything non-trivial. For uploads and for any Sheets/Slides/Docs edit, use the `gws` CLI below instead.
+
+### `gws` CLI — not MCP, but the widest Google surface available
+Installed and authed locally (keyring backend) at `~/.nvm/versions/node/*/bin/gws`. Services: `drive`, `sheets` (read **and write**), `docs`, `slides`, `gmail`, `calendar`, `admin-reports`. Introspect any method with `gws schema <service.resource.method>`.
+
+This is the **only** path to Google Sheets writes — there is no Sheets MCP connector, and none exists in the registry. Used by `acquia-brand-deck` (Drive upload + Slides thumbnails) and `lead-routing-audit` (daily Sheet append).
+
+**Two constraints that bite:**
+- `--upload` paths must resolve inside the current working directory — `cd` into the project first.
+- **Credentials are local to Forkan's machine.** A cloud routine has neither the binary nor the keyring, so any routine depending on `gws` must run locally or be given its own credentials. Don't assume a scheduled cloud agent can reach Sheets.
 
 ## Awaiting authorization (visible, not yet usable)
 These connectors show up as available but need the user to complete authorization first — via claude.ai connector settings, or `/mcp` in an interactive Claude Code session:
